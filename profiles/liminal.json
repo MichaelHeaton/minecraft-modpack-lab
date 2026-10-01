@@ -12,5 +12,6 @@
     "wandering_traders": false
   },
   "start": "examples/reach/verdant.json",
-  "targets": "examples/reach/targets-liminal.json"
+  "targets": "examples/reach/targets-liminal.json",
+  "pack_namespaces": ["cpliminal"]
 }

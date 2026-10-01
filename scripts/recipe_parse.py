@@ -67,6 +67,26 @@ def get_result_ids(data: dict) -> list[str]:
         return found
     if rtype == "ae2:crafting_unit_transform" and isinstance(data.get("upgraded_block"), str):
         return [data["upgraded_block"]]
+    if rtype == "ae2:entropy":
+        out = data.get("output") or {}
+        if isinstance(out, dict):
+            drops = out.get("drops")
+            if isinstance(drops, list):
+                for entry in drops:
+                    rid = _stack_id(entry)
+                    if rid and rid not in found:
+                        found.append(rid)
+            block = out.get("block")
+            if isinstance(block, dict) and isinstance(block.get("id"), str):
+                if block["id"] not in found:
+                    found.append(block["id"])
+            elif isinstance(block, str) and block not in found:
+                found.append(block)
+            if out.get("fluid"):
+                rid = _stack_id(out["fluid"] if isinstance(out["fluid"], dict) else out)
+                if rid and rid not in found:
+                    found.append(rid)
+        return found
     # Botany Pots crop drops
     if rtype == "botanypots:crop":
         drops = data.get("drops") or {}
@@ -79,6 +99,61 @@ def get_result_ids(data: dict) -> list[str]:
                 if rid and rid not in found:
                     found.append(rid)
         return found
+    if rtype == "botanypots:pot_interaction" and data.get("new_soil"):
+        rid = _stack_id(data["new_soil"])
+        return [rid] if rid else []
+    if rtype == "mekanism:separating":
+        for key in ("left_chemical_output", "right_chemical_output"):
+            rid = _stack_id(data.get(key))
+            if rid and rid not in found:
+                found.append(rid)
+        return found
+    if rtype == "exdeorum:barrel_fluid_transformation":
+        if isinstance(data.get("result_fluid"), str):
+            found.append(f"fluid:{data['result_fluid']}")
+        for bp in data.get("byproducts") or []:
+            if isinstance(bp, dict) and isinstance(bp.get("value"), str):
+                found.append(bp["value"])
+            else:
+                rid = _stack_id(bp)
+                if rid:
+                    found.append(rid)
+        return found
+    if rtype == "productivebees:block_conversion":
+        to = data.get("to")
+        if isinstance(to, dict) and isinstance(to.get("Name"), str) and to["Name"] != "minecraft:air":
+            return [to["Name"]]
+        return []
+    if rtype == "productivebees:advanced_beehive":
+        for entry in data.get("results") or []:
+            item = entry.get("item") if isinstance(entry, dict) else None
+            if isinstance(item, dict):
+                rid = item.get("items") or _stack_id(item)
+                if isinstance(rid, str) and rid not in found:
+                    found.append(rid)
+        return found
+    if rtype == "irons_spellbooks:alchemist_cauldron_brew":
+        for key in ("byproduct", "result", "results"):
+            val = data.get(key)
+            if not val:
+                continue
+            for v in (val if isinstance(val, list) else [val]):
+                rid = _stack_id(v)
+                if rid and rid not in found:
+                    found.append(rid)
+        return found
+    if rtype == "twilightforest:uncrafting":
+        # Uncrafting: input item → pattern ingredients
+        key = data.get("key") or {}
+        for ing in key.values():
+            rid = _stack_id(ing) if not isinstance(ing, str) else ing
+            if isinstance(ing, dict):
+                rid = ing.get("item") or _stack_id(ing)
+            if isinstance(rid, str) and rid not in found:
+                found.append(rid)
+        return found
+    if rtype == "apotheosis:potion_charm_crafting":
+        return ["apotheosis:potion_charm"]
     for key in (
         "result", "results", "output", "outputs", "main_output", "secondary_output",
         "item_output", "chemical_output", "fluid_output", "fluid_result", "byproducts",
@@ -238,6 +313,69 @@ def ingredients_from(data: dict) -> list[dict]:
     if rtype == "botanypots:block_derived_crop" and data.get("input"):
         # Output is the block itself (growth); treat as identity — skip unless display result
         return [norm_ing(data["input"])]
+
+    if rtype == "ae2:entropy":
+        inp = data.get("input") or {}
+        if isinstance(inp, dict):
+            if "fluid" in inp:
+                fi = _fluid_ing(inp["fluid"] if isinstance(inp["fluid"], dict) else inp)
+                return [fi] if fi else []
+            block = inp.get("block")
+            if isinstance(block, dict) and block.get("id"):
+                return [{"type": "item", "value": block["id"], "count": 1}]
+            if inp.get("item"):
+                return [norm_ing(inp)]
+        return []
+
+    if rtype == "botanypots:pot_interaction":
+        for key in ("soil_item", "held_item"):
+            val = data.get(key)
+            if isinstance(val, list):
+                for v in val:
+                    out.append(norm_ing(v))
+            elif val:
+                out.append(norm_ing(val))
+        return [i for i in out if i.get("value")]
+
+    if rtype == "exdeorum:barrel_fluid_transformation":
+        fi = _fluid_ing(data.get("base_fluid"))
+        if fi:
+            out.append(fi)
+        cat = data.get("catalyst")
+        if isinstance(cat, dict) and isinstance(cat.get("block"), str):
+            out.append({"type": "item", "value": cat["block"], "count": 1})
+        return [i for i in out if i.get("value")]
+
+    if rtype == "productivebees:block_conversion":
+        frm = data.get("from")
+        if isinstance(frm, dict) and isinstance(frm.get("Name"), str) and frm["Name"] != "minecraft:air":
+            return [{"type": "item", "value": frm["Name"], "count": 1}]
+        return []
+
+    if rtype == "productivebees:advanced_beehive" and data.get("ingredient"):
+        return [norm_ing(data["ingredient"])]
+
+    if rtype == "irons_spellbooks:alchemist_cauldron_brew":
+        if data.get("input"):
+            out.append(norm_ing(data["input"]))
+        fi = _fluid_ing(data.get("base_fluid"))
+        if fi:
+            out.append(fi)
+        return [i for i in out if i.get("value")]
+
+    if rtype == "twilightforest:uncrafting" and data.get("input"):
+        return [norm_ing(data["input"])]
+
+    if rtype == "apotheosis:potion_charm_crafting":
+        pattern = data.get("pattern", [])
+        key = data.get("key", {})
+        seen: set[str] = set()
+        for row in pattern:
+            for ch in row:
+                if ch != " " and ch in key and ch not in seen:
+                    seen.add(ch)
+                    out.append(norm_ing(key[ch]))
+        return [i for i in out if i.get("value")]
 
     if "crafting_shaped" in rtype:
         pattern = data.get("pattern", [])

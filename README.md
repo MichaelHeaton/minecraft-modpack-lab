@@ -35,6 +35,7 @@ See [docs/profiles.md](docs/profiles.md). Examples: `profiles/verdant.json`, `pr
 | `make dump EULA=1` | Headless Docker snapshot → `out/<id>/recipe_data.json` |
 | `make convert` | Re-parse snapshot + extract loot/GLMs from jars (no Docker) |
 | `make report` | Playability report (targets + chicken-egg signals) |
+| `make compare A=… B=…` | Why pack A unlocks what B does not (pack vs mod recipes) |
 | `make analyze EULA=1` | Dump + report |
 | `make why ITEM=…` | Cheapest craft chain |
 | `make knowledge` | Local learnings (client-only / CF-blocked mods) |
@@ -48,7 +49,8 @@ lab/                 headless snapshot (Docker + KubeJS exporter)
 scripts/             registry, dump convert, reach, report, profiles
 profiles/            world flags + start/targets per pack
 examples/reach/      example start sets and target lists
-docs/                profiles, knowledge, loot/GLM extract
+docs/                profiles, knowledge, loot, roadmap
 ```
 
 Loot tables and NeoForge GLMs are jar-scanned on convert — see [docs/loot.md](docs/loot.md).
+Longer product plan (compare → configs → quest trees): [docs/roadmap.md](docs/roadmap.md).

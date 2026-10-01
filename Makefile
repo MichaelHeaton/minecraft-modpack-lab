@@ -33,7 +33,7 @@ RUN_FLAGS += $(if $(ITEM),--item $(ITEM),)
 
 .DEFAULT_GOAL := help
 
-.PHONY: help packs add remove pick doctor snapshot dump check why blocked tags analyze knowledge report convert
+.PHONY: help packs add remove pick doctor snapshot dump check why blocked tags analyze knowledge report convert compare
 
 help:  ## show targets
 	@echo "modpack-lab — is this pack playable after world tweaks?"
@@ -50,13 +50,14 @@ help:  ## show targets
 	@echo "  make dump EULA=1                   headless snapshot → recipe_data.json"
 	@echo "  make report                        playability report (profile world flags + targets)"
 	@echo "  make convert PACK=id               re-parse snapshot + extract loot (no Docker)"
+	@echo "  make compare A=id B=id [ITEM=…]    why pack A unlocks what B does not"
 	@echo "  make analyze EULA=1                dump + report"
 	@echo "  make check                         reachability only"
 	@echo "  make why ITEM=mod:item             cheapest craft chain"
 	@echo "  make blocked ITEM=mod:item         per-recipe missing ingredients"
 	@echo "  make tags                          unresolved ingredient tags"
 	@echo ""
-	@echo "Profiles: profiles/<id>.json (world: ores/nether/end/…). See docs/profiles.md"
+	@echo "Profiles: profiles/<id>.json (world + pack_namespaces). See docs/profiles.md + docs/roadmap.md"
 	@echo "Outputs: out/<id>/  Learnings: .cache/  (both gitignored)"
 
 packs:  ## list registered packs
@@ -102,11 +103,23 @@ report:  ## playability report from profile + dump
 
 convert:  ## re-parse snapshot → recipe_data (+ loot) without Docker
 	@test -n "$(PACK)" || (echo "usage: make convert PACK=verdant"; exit 2)
+	@$(PY) -c "import json,sys; from pathlib import Path; p=Path('profiles')/('$(PACK)'+'.json');\
+ ns=','.join(json.loads(p.read_text()).get('pack_namespaces') or []) if p.exists() else '';\
+ print(ns)" > /tmp/mplab-ns-$(PACK).txt
 	@$(PY) scripts/snapshot_to_dump.py \
 		--snapshot out/$(PACK)/snapshot.json \
 		--out out/$(PACK)/recipe_data.json \
 		--mods-dir out/$(PACK)/server/mods \
-		--server-dir out/$(PACK)/server
+		--server-dir out/$(PACK)/server \
+		--pack-namespaces "$$(cat /tmp/mplab-ns-$(PACK).txt)"
+
+compare:  ## why pack A unlocks what B does not (A=verdant B=liminal [ITEM=…])
+	@test -n "$(A)" -a -n "$(B)" || (echo "usage: make compare A=verdant B=liminal [ITEM=mod:item]"; exit 2)
+	@$(PY) scripts/compare.py \
+		--a out/$(A)/recipe_data.json --name-a $(A) \
+		--b out/$(B)/recipe_data.json --name-b $(B) \
+		$(if $(ITEM),--item $(ITEM),) \
+		$(if $(TARGETS),--targets $(TARGETS),)
 
 knowledge:  ## show local .cache learnings (client-only mods, pack meta)
 	@$(PY) scripts/knowledge.py show $(if $(PACK),--pack-id $(PACK),)

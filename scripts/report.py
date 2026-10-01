@@ -89,6 +89,38 @@ def report(pack_id: str, dump_path: Path) -> int:
         for s in signals:
             print(f"  • {s}")
 
+    # Pack-authored routes (KubeJS / cp* datapacks) — useful when comparing packs
+    origins = dump.get("origins") or {}
+    pack_ns = dump.get("pack_namespaces") or []
+    pack_items = []
+    for item, bucket in (dump.get("recipes") or {}).items():
+        pack_routes = [e for e in (bucket.get("mod") or []) if e.get("origin") == "pack"]
+        if pack_routes:
+            pack_items.append((item, pack_routes))
+    print()
+    print("## Pack-authored recipes (KubeJS / pack datapack namespaces)")
+    print(f"  origins={origins}; namespaces={pack_ns}")
+    if not pack_items:
+        print("  (none — all routes came from mod jars)")
+    else:
+        for item, routes in sorted(pack_items, key=lambda x: x[0])[:20]:
+            ids = ", ".join(f"{e.get('id')} ({e.get('type')})" for e in routes[:3])
+            print(f"  {item}: {ids}")
+        if len(pack_items) > 20:
+            print(f"  … {len(pack_items) - 20} more items with pack routes")
+
+    # For blocked targets, show whether any known recipe is pack-authored elsewhere
+    if bad:
+        print()
+        print("## Blocked targets — recipe origins in dump")
+        for t in bad:
+            routes = ((dump.get("recipes") or {}).get(t["id"]) or {}).get("mod") or []
+            if not routes:
+                print(f"  {t['id']}: no recipes")
+                continue
+            for e in routes[:5]:
+                print(f"  {t['id']}: {e.get('type')} {e.get('id')} [{e.get('origin', '?')}]")
+
     # Skipped recipe types — coverage debt
     skipped = dump.get("skipped_types") or {}
     non_route = dump.get("non_route_types") or {}
@@ -106,6 +138,10 @@ def report(pack_id: str, dump_path: Path) -> int:
             print(f"  {n:>5}  {rtype}")
         if len(skipped) > 12:
             print(f"  ... {len(skipped) - 12} more types")
+    else:
+        print()
+        print("## Unparsed recipe types")
+        print("  (none — every snapshot recipe was parsed or classified non-route)")
     if non_route:
         print()
         print("## Non-route types (intentionally ignored — no item craft path)")
