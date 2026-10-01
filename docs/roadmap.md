@@ -33,17 +33,14 @@ CLI stays for agents/CI. Humans get one static site for **all** dumped packs:
 Overview, targets + craft paths, pack-authored recipes, coverage, economics /
 progression when insights JSON exists. No Docker/Node — Python 3 only.
 
-### 1. Deeper pack attribute (next)
+### 1. Deeper pack attribute — done (CLI + web)
 
-`make compare` already flags pack-only recipes. Next high-value tool for
-builders: **why pack A works and B doesn’t** at the file level —
+`make attribute A=verdant B=liminal` → `out/diffs/<a>-vs-<b>/attribute.{json,md}`
 
-- Mod-list diff (packwiz toml / installed jars)
-- KubeJS + datapack tree diff (`kubejs/`, `kubejs/data/`, pack namespaces)
-- Config toggle diff (disabled machines, JEI hide)
-
-Surface that in the web compare view so “copy Verdant’s crimson sieve” is a
-clickable path, not a CLI wall of text.
+Diffs packwiz mod ids, KubeJS/datapack trees, pack-origin recipe ids from dumps,
+and optional server configs. Surfaces **copy candidates** (datapack recipes only
+in A — e.g. `kubejs/data/cpverdant/recipe/sieve_*`). Web compare includes an
+Attribute tab when packs are registered via `make add`.
 
 ### 2. Config + jar economics — done (CLI)
 

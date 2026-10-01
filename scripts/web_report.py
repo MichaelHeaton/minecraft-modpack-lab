@@ -888,6 +888,195 @@ def _routes(dump: dict, item: str) -> list[dict]:
     return list(((dump.get("recipes") or {}).get(item) or {}).get("mod") or [])
 
 
+def load_or_build_attribute(pack_a: str, pack_b: str) -> dict | None:
+    """Load out/diffs/<a>-vs-<b>/attribute.json, generating it when packs are registered."""
+    path = ROOT / "out" / "diffs" / f"{pack_a}-vs-{pack_b}" / "attribute.json"
+    if not path.is_file():
+        try:
+            from attribute_diff import attribute  # noqa: WPS433
+
+            data = attribute(pack_a, pack_b)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+            md = ROOT / "out" / "diffs" / f"{pack_a}-vs-{pack_b}" / "attribute.md"
+            from attribute_diff import render_md  # noqa: WPS433
+
+            md.write_text(render_md(data), encoding="utf-8")
+            return data
+        except SystemExit:
+            return None
+        except Exception:
+            return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
+def attribute_section_html(attr: dict, pack_a: str, pack_b: str) -> str:
+    mods = attr.get("mods") or {}
+    kube = attr.get("kubejs_and_datapacks") or {}
+    hints = attr.get("datapack_recipes_only_in_a") or []
+    pr = attr.get("pack_origin_recipes") or {}
+    parts = [
+        '<section id="attribute">',
+        "<h2>Source attribute</h2>",
+        '<p class="section-note">'
+        f"Why {esc(pack_a)} differs from {esc(pack_b)} at the packwiz / KubeJS level. "
+        f'<a href="attribute.html">Full attribute page</a>'
+        "</p>",
+        '<div class="flags">',
+        f'<div class="flag"><span class="label">mods only {esc(pack_a)}</span>'
+        f'<span class="value">{esc(len(mods.get("only_a") or []))}</span></div>',
+        f'<div class="flag"><span class="label">mods only {esc(pack_b)}</span>'
+        f'<span class="value">{esc(len(mods.get("only_b") or []))}</span></div>',
+        f'<div class="flag"><span class="label">kubejs only {esc(pack_a)}</span>'
+        f'<span class="value">{esc(len(kube.get("only_a") or []))}</span></div>',
+        f'<div class="flag"><span class="label">datapack recipes</span>'
+        f'<span class="value">{esc(len(hints))}</span></div>',
+        "</div>",
+    ]
+    if hints:
+        parts.append(f"<h3>Datapack recipes only in {esc(pack_a)} (copy candidates)</h3>")
+        parts.append("<ul class=\"signal-list\">")
+        for h in hints[:12]:
+            parts.append(f"<li><code>{esc(h.get('file'))}</code></li>")
+        if len(hints) > 12:
+            parts.append(f"<li>… +{len(hints) - 12} more on <a href=\"attribute.html\">attribute page</a></li>")
+        parts.append("</ul>")
+    only_recipes = pr.get("only_a") or []
+    if only_recipes:
+        parts.append(f"<h3>Pack-origin recipe ids only in {esc(pack_a)}</h3>")
+        parts.append("<ul class=\"signal-list\">")
+        for r in only_recipes[:8]:
+            parts.append(
+                f"<li><code>{esc(r.get('id'))}</code> → <code>{esc(r.get('item'))}</code></li>"
+            )
+        parts.append("</ul>")
+    parts.append("</section>")
+    return "\n".join(parts)
+
+
+def attribute_page_html(attr: dict, pack_a: str, pack_b: str) -> str:
+    mods = attr.get("mods") or {}
+    kube = attr.get("kubejs_and_datapacks") or {}
+    hints = attr.get("datapack_recipes_only_in_a") or []
+    pr = attr.get("pack_origin_recipes") or {}
+    sc = attr.get("server_config") or {}
+    body = f"""
+    <header class="hero">
+      <p class="kicker">Source attribute</p>
+      <h1>{esc(pack_a)} vs {esc(pack_b)}</h1>
+      <p class="lede">
+        File-level diff of packwiz mods, KubeJS/datapacks, and dump configs.
+        Copy candidates are datapack recipes present only in {esc(pack_a)}.
+      </p>
+    </header>
+    <section>
+      <h2>Mods</h2>
+      <p class="section-note">
+        {esc(pack_a)}={esc(mods.get("count_a"))} · {esc(pack_b)}={esc(mods.get("count_b"))} ·
+        shared {esc(mods.get("shared"))}
+      </p>
+"""
+    for label, key in ((pack_a, "only_a"), (pack_b, "only_b")):
+        ids = mods.get(key) or []
+        body += f"<h3>Only in {esc(label)} ({esc(len(ids))})</h3>"
+        if not ids:
+            body += '<p class="empty">(none)</p>'
+        else:
+            body += (
+                f'{toolbar(placeholder="Filter mods…")}'
+                '<div class="table-wrap"><table class="data"><thead>'
+                "<tr><th>Mod id</th></tr></thead><tbody>"
+            )
+            for m in ids:
+                body += (
+                    f'<tr data-filter-row data-filter-text="{esc(m)}">'
+                    f'<td class="mono">{esc(m)}</td></tr>\n'
+                )
+            body += "</tbody></table></div>"
+    body += "</section>"
+
+    body += f"""
+    <section>
+      <h2>Datapack recipes only in {esc(pack_a)}</h2>
+      <p class="section-note">Likely progression scripts to port into {esc(pack_b)}.</p>
+"""
+    if hints:
+        body += (
+            f'{toolbar(placeholder="Filter files…")}'
+            '<div class="table-wrap"><table class="data"><thead>'
+            "<tr><th>File</th></tr></thead><tbody>"
+        )
+        for h in hints:
+            fpath = h.get("file") or ""
+            body += (
+                f'<tr data-filter-row data-filter-text="{esc(fpath)}">'
+                f'<td class="mono">{esc(fpath)}</td></tr>\n'
+            )
+        body += "</tbody></table></div>"
+    else:
+        body += '<p class="empty">None detected.</p>'
+    body += "</section>"
+
+    body += f"""
+    <section>
+      <h2>KubeJS / datapack files only in {esc(pack_a)}</h2>
+      <p class="section-note">{esc(len(kube.get("only_a") or []))} files (scripts + data).</p>
+"""
+    only_a = kube.get("only_a") or []
+    if only_a:
+        body += (
+            f'{toolbar(placeholder="Filter…")}'
+            '<div class="table-wrap"><table class="data"><thead>'
+            "<tr><th>Relative path</th></tr></thead><tbody>"
+        )
+        for rel in only_a[:400]:
+            body += (
+                f'<tr data-filter-row data-filter-text="{esc(rel)}">'
+                f'<td class="mono">{esc(rel)}</td></tr>\n'
+            )
+        body += "</tbody></table></div>"
+        if len(only_a) > 400:
+            body += f'<p class="empty">… +{len(only_a) - 400} more (see attribute.json)</p>'
+    else:
+        body += '<p class="empty">None.</p>'
+    body += "</section>"
+
+    only_pr = pr.get("only_a") or []
+    body += f"<section><h2>Pack-origin recipe ids only in {esc(pack_a)}</h2>"
+    if only_pr:
+        body += (
+            '<div class="table-wrap"><table class="data"><thead>'
+            "<tr><th>Recipe id</th><th>Item</th><th>Type</th></tr></thead><tbody>"
+        )
+        for r in only_pr:
+            body += (
+                "<tr>"
+                f'<td class="mono">{esc(r.get("id"))}</td>'
+                f'<td class="item">{esc(r.get("item"))}</td>'
+                f'<td class="mono">{esc(r.get("type"))}</td>'
+                "</tr>\n"
+            )
+        body += "</tbody></table></div>"
+    else:
+        body += '<p class="empty">None (or dumps missing).</p>'
+    body += "</section>"
+
+    body += "<section><h2>Server config</h2>"
+    if not sc.get("available_a") and not sc.get("available_b"):
+        body += '<p class="empty">No dump configs yet — run make dump on both packs.</p>'
+    else:
+        body += (
+            f'<p class="section-note">only {esc(pack_a)}={esc(len(sc.get("only_a") or []))} · '
+            f'only {esc(pack_b)}={esc(len(sc.get("only_b") or []))} · '
+            f'changed={esc(len(sc.get("changed") or []))}</p>'
+        )
+    body += "</section>"
+    return body
+
+
 def write_compare_site(pack_a: str, pack_b: str, *, all_packs: list[str] | None = None) -> Path:
     a = analyze_pack(pack_a)
     b = analyze_pack(pack_b)
@@ -900,12 +1089,18 @@ def write_compare_site(pack_a: str, pack_b: str, *, all_packs: list[str] | None 
     if not (HUB_ROOT / "assets").is_dir():
         copy_assets(HUB_ROOT)
 
-    pages = [("index.html", "Compare"), ("targets.html", "Targets"), ("pack-diff.html", "Pack recipes")]
+    pages = [
+        ("index.html", "Compare"),
+        ("targets.html", "Targets"),
+        ("pack-diff.html", "Pack recipes"),
+        ("attribute.html", "Attribute"),
+    ]
     assets = "../../assets"
     home = "../../index.html"
     switcher = pack_switcher_html(
         current=None, packs=packs, page="index.html", from_compare=True
     )
+    attr = load_or_build_attribute(pack_a, pack_b)
 
     # Union of target ids (prefer A's order, then B-only)
     seen = set()
@@ -988,6 +1183,15 @@ def write_compare_site(pack_a: str, pack_b: str, *, all_packs: list[str] | None 
       </p>
     </section>
 """
+    if attr:
+        body += attribute_section_html(attr, pack_a, pack_b)
+    else:
+        body += (
+            '<section><h2>Source attribute</h2>'
+            '<p class="empty">Run <code>make attribute A='
+            f"{esc(pack_a)} B={esc(pack_b)}</code> "
+            "(packs must be registered with <code>make add</code>).</p></section>"
+        )
     render_page(
         title=f"{pack_a} vs {pack_b}",
         nav=nav_links("index.html", pages),
@@ -1116,6 +1320,17 @@ def write_compare_site(pack_a: str, pack_b: str, *, all_packs: list[str] | None 
         home=home,
         pack_switcher=switcher,
     )
+
+    if attr:
+        render_page(
+            title=f"Attribute — {pack_a} vs {pack_b}",
+            nav=nav_links("attribute.html", pages),
+            body=attribute_page_html(attr, pack_a, pack_b),
+            out=out_dir / "attribute.html",
+            assets_rel=assets,
+            home=home,
+            pack_switcher=switcher,
+        )
 
     print(f"wrote {out_dir}/")
     return out_dir

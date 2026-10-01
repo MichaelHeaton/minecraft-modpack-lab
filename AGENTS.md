@@ -17,6 +17,7 @@ make insights PACK=<id>
 make progression PACK=<id>
 make web                    # hub + all dumps → out/web/
 make serve                  # generate + http://127.0.0.1:8765/ (pack switcher)
+make attribute A=<id> B=<id>
 make web-compare A=<id> B=<id>
 ```
 

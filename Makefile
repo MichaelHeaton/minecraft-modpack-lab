@@ -33,7 +33,7 @@ RUN_FLAGS += $(if $(ITEM),--item $(ITEM),)
 
 .DEFAULT_GOAL := help
 
-.PHONY: help packs add remove pick doctor snapshot dump check why blocked tags analyze knowledge report convert compare web serve web-compare progression insights
+.PHONY: help packs add remove pick doctor snapshot dump check why blocked tags analyze knowledge report convert compare web serve web-compare progression insights attribute
 
 help:  ## show targets
 	@echo "modpack-lab — is this pack playable after world tweaks?"
@@ -55,6 +55,7 @@ help:  ## show targets
 	@echo "  make web-compare A=id B=id         compare into out/web/compare/"
 	@echo "  make convert PACK=id               re-parse snapshot + extract loot (no Docker)"
 	@echo "  make compare A=id B=id [ITEM=…]    why pack A unlocks what B does not"
+	@echo "  make attribute A=id B=id           mods/KubeJS/datapack file diff"
 	@echo "  make insights PACK=id              jar+config economics → out/<id>/insights/"
 	@echo "  make progression PACK=id           quest-chapter draft from reach depths"
 	@echo "  make analyze EULA=1                dump + report"
@@ -143,6 +144,10 @@ compare:  ## why pack A unlocks what B does not (A=verdant B=liminal [ITEM=…])
 		--b out/$(B)/recipe_data.json --name-b $(B) \
 		$(if $(ITEM),--item $(ITEM),) \
 		$(if $(TARGETS),--targets $(TARGETS),)
+
+attribute:  ## file-level why A works / B doesn't (mods + kubejs + datapacks)
+	@test -n "$(A)" -a -n "$(B)" || (echo "usage: make attribute A=verdant B=liminal"; exit 2)
+	@$(PY) scripts/attribute_diff.py --a $(A) --b $(B)
 
 insights:  ## jar+config economics insights (PACK=id; needs prior dump)
 	@test -n "$(PACK)" || (echo "usage: make insights PACK=verdant"; exit 2)
