@@ -1,0 +1,28 @@
+{
+  "targets": [
+    {"id": "minecraft:iron_ingot", "why": "every gear tier, machines"},
+    {"id": "minecraft:copper_ingot", "why": "tier 1 metal"},
+    {"id": "minecraft:gold_ingot", "why": "class mods, Powah"},
+    {"id": "minecraft:diamond", "why": "class mods, Powah niotic"},
+    {"id": "minecraft:emerald", "why": "Powah spirited"},
+    {"id": "minecraft:netherite_ingot", "why": "top gear tier; must be buildable without Nether veins"},
+    {"id": "minecraft:lapis_lazuli", "why": "enchanting / class mods"},
+    {"id": "minecraft:redstone", "why": "machines"},
+    {"id": "minecraft:coal", "why": "Powah paste, fuel"},
+    {"id": "minecraft:quartz", "why": "AE2"},
+    {"id": "minecraft:blaze_powder", "why": "Powah, barrels, netherrack mixing"},
+    {"id": "minecraft:blaze_rod", "why": "Powah blazing crystal — powder alone is not enough"},
+    {"id": "minecraft:obsidian", "why": "building"},
+    {"id": "minecraft:ender_pearl", "why": "teleport / crafting"},
+    {"id": "minecraft:leather", "why": "armor"},
+    {"id": "powah:furnator_starter", "why": "first generator"},
+    {"id": "mekanism:ingot_osmium", "why": "Mekanism line"},
+    {"id": "ae2:certus_quartz_crystal", "why": "AE2 start"},
+    {"id": "silentgear:crimson_iron_ingot", "why": "Silent Gear tier"},
+    {"id": "silentgear:azure_silver_ingot", "why": "Silent Gear tier"},
+    {"id": "silentgear:tyrian_steel_ingot", "why": "Silent Gear alloy cap"},
+    {"id": "silentgear:blueprint_book", "why": "Silent Gear crafting start"},
+    {"id": "create:andesite_alloy", "why": "Create start"},
+    {"id": "create:brass_ingot", "why": "Create mid"}
+  ]
+}

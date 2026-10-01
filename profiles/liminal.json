@@ -1,0 +1,16 @@
+{
+  "id": "liminal",
+  "label": "Colony Protocol: Liminal",
+  "notes": "Kitchen-sink inherit pack. Same overworld-no-ores teaching baseline as Verdant for early metals; later systems vary. Tune start/targets as Liminal's own progression firms up.",
+  "world": {
+    "spawn": "overworld",
+    "terrain": "full",
+    "ore_veins": false,
+    "nether": false,
+    "end": false,
+    "villages": true,
+    "wandering_traders": false
+  },
+  "start": "examples/reach/verdant.json",
+  "targets": "examples/reach/targets-liminal.json"
+}

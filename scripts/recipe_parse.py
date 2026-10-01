@@ -41,10 +41,17 @@ def _stack_id(val) -> str | None:
 def get_result_ids(data: dict) -> list[str]:
     """Every output of a recipe (items, fluids, chemicals), in order, without repeats."""
     found: list[str] = []
-    if data.get("type") == "exdeorum:ore_chunk" and isinstance(data.get("ore"), str):
+    rtype = data.get("type", "")
+    if rtype == "exdeorum:ore_chunk" and isinstance(data.get("ore"), str):
         return ["#" + data["ore"]]
-    for key in ("result", "results", "output", "outputs", "main_output", "secondary_output",
-                "fluid_output", "fluid_result", "byproducts"):
+    # Fluid-producing recipes where the fluid field is the product (not an ingredient)
+    if rtype in ("exdeorum:water_crucible", "exdeorum:lava_crucible") and data.get("fluid"):
+        rid = _stack_id(data["fluid"])
+        return [rid] if rid else []
+    for key in (
+        "result", "results", "output", "outputs", "main_output", "secondary_output",
+        "item_output", "chemical_output", "fluid_output", "fluid_result", "byproducts",
+    ):
         val = data.get(key)
         if not val:
             continue
@@ -129,6 +136,19 @@ def _scan_refs(node, _top: bool = True, _depth: int = 0) -> list[dict]:
     return found
 
 
+def _fluid_ing(val) -> dict | None:
+    """Turn a fluid/chemical stack or tag into a pseudo-item ingredient."""
+    if not val:
+        return None
+    if isinstance(val, dict) and isinstance(val.get("tag"), str):
+        # fluid tags are still tags — reach resolves fluid:<id> members when present
+        return {"type": "tag", "value": val["tag"], "count": 1}
+    rid = _stack_id(val)
+    if rid:
+        return {"type": "item", "value": rid, "count": 1}
+    return None
+
+
 def ingredients_from(data: dict) -> list[dict]:
     """Return flat ingredient list from any recipe type."""
     rtype = data.get("type", "")
@@ -138,6 +158,34 @@ def ingredients_from(data: dict) -> list[dict]:
         chunk = data.get("ore_chunk")
         chunk = chunk.get("item") if isinstance(chunk, dict) else chunk
         return [{"type": "item", "value": chunk, "count": 4}] if isinstance(chunk, str) else []
+
+    if rtype in ("exdeorum:barrel_mixing", "exdeorum:barrel_fluid_mixing"):
+        if data.get("ingredient"):
+            out.append(norm_ing(data["ingredient"]))
+        for key in ("fluid", "fluid1", "fluid2"):
+            fi = _fluid_ing(data.get(key))
+            if fi:
+                out.append(fi)
+        # barrel_fluid_mixing sometimes uses additive fluids only
+        out = [i for i in out if i.get("value")]
+        return out or [i for i in _scan_refs(data) if i.get("value")]
+
+    if rtype in ("exdeorum:water_crucible", "exdeorum:lava_crucible"):
+        return [norm_ing(data.get("ingredient", {}))] if data.get("ingredient") else []
+
+    if rtype == "mekanism:reaction":
+        for key in ("item_input", "fluid_input", "chemical_input"):
+            val = data.get(key)
+            if not val:
+                continue
+            if key == "item_input":
+                out.append(norm_ing(val))
+            else:
+                fi = _fluid_ing(val)
+                if fi:
+                    out.append(fi)
+        return [i for i in out if i.get("value")]
+
     if "crafting_shaped" in rtype:
         pattern = data.get("pattern", [])
         key = data.get("key", {})
@@ -156,7 +204,7 @@ def ingredients_from(data: dict) -> list[dict]:
     ):
         out.append(norm_ing(data.get("ingredient", {})))
     else:
-        for field in ("ingredients", "ingredient", "inputs", "input"):
+        for field in ("ingredients", "ingredient", "inputs", "input", "item_input"):
             val = data.get(field)
             if not val:
                 continue
@@ -166,6 +214,14 @@ def ingredients_from(data: dict) -> list[dict]:
             else:
                 out.append(norm_ing(val))
             break
+        # Common companion fluid/chemical inputs
+        for key in ("fluid_input", "chemical_input", "fluid"):
+            if key in data and rtype not in ("exdeorum:water_crucible", "exdeorum:lava_crucible"):
+                # Skip fluid-as-output crucibles (handled above)
+                if key == "fluid" and "result" in data:
+                    fi = _fluid_ing(data[key])
+                    if fi:
+                        out.append(fi)
 
     mesh = data.get("mesh")
     if mesh:

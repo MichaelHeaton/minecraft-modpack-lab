@@ -1,0 +1,16 @@
+{
+  "id": "verdant",
+  "label": "Colony Protocol: Verdant",
+  "notes": "Overworld terrain, no ore veins, no Nether/End progression. Metals via Ex Deorum sieving.",
+  "world": {
+    "spawn": "overworld",
+    "terrain": "full",
+    "ore_veins": false,
+    "nether": false,
+    "end": false,
+    "villages": true,
+    "wandering_traders": false
+  },
+  "start": "examples/reach/verdant.json",
+  "targets": "examples/reach/targets-verdant.json"
+}

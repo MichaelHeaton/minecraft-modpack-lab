@@ -33,10 +33,10 @@ RUN_FLAGS += $(if $(ITEM),--item $(ITEM),)
 
 .DEFAULT_GOAL := help
 
-.PHONY: help packs add remove pick doctor snapshot dump check why blocked tags analyze knowledge
+.PHONY: help packs add remove pick doctor snapshot dump check why blocked tags analyze knowledge report
 
 help:  ## show targets
-	@echo "modpack-lab — analyze packwiz NeoForge packs (recipes the server really loads)"
+	@echo "modpack-lab — is this pack playable after world tweaks?"
 	@echo ""
 	@echo "Setup"
 	@echo "  make packs                         list registered packs"
@@ -45,25 +45,18 @@ help:  ## show targets
 	@echo "  make pick                          choose current pack (1/2/3…)"
 	@echo "  make knowledge                     show local learnings (.cache/, gitignored)"
 	@echo ""
-	@echo "Analyze  (add PACK=id|N|/path  or omit to pick)"
+	@echo "Analyze  (PACK=id|N|/path  or omit to pick)"
 	@echo "  make doctor                        check Docker / pack / RAM / port"
-	@echo "  make snapshot EULA=1               boot headless server → out/<id>/snapshot.json"
-	@echo "  make dump EULA=1                   snapshot + write out/<id>/recipe_data.json"
-	@echo "  make check                         reachability from start/targets files"
-	@echo "  make analyze EULA=1                dump + check (full pass)"
+	@echo "  make dump EULA=1                   headless snapshot → recipe_data.json"
+	@echo "  make report                        playability report (profile world flags + targets)"
+	@echo "  make analyze EULA=1                dump + report"
+	@echo "  make check                         reachability only"
 	@echo "  make why ITEM=mod:item             cheapest craft chain"
 	@echo "  make blocked ITEM=mod:item         per-recipe missing ingredients"
-	@echo "  make tags                          ingredient tags with no members"
+	@echo "  make tags                          unresolved ingredient tags"
 	@echo ""
-	@echo "Examples"
-	@echo "  make add DIR=~/Projects/…/minecraft-modpack-cp-liminal"
-	@echo "  make doctor PACK=liminal"
-	@echo "  make dump PACK=1 EULA=1"
-	@echo "  make check PACK=liminal START=examples/reach/verdant.json"
-	@echo "  make why PACK=liminal ITEM=mekanism:ingot_osmium"
-	@echo ""
-	@echo "Outputs: out/<pack-id>/ (large). Learnings: .cache/ (client-only mods, meta)."
-	@echo "Both gitignored. Pack repos are never modified."
+	@echo "Profiles: profiles/<id>.json (world: ores/nether/end/…). See docs/profiles.md"
+	@echo "Outputs: out/<id>/  Learnings: .cache/  (both gitignored)"
 
 packs:  ## list registered packs
 	@$(PACKS) list
@@ -100,8 +93,11 @@ blocked:  ## missing ingredients for ITEM=…
 tags:  ## unresolved ingredient tags
 	@$(RUN) tags $(RUN_FLAGS)
 
-analyze:  ## dump + check (needs EULA=1)
+analyze:  ## dump + report (needs EULA=1)
 	@$(RUN) analyze $(RUN_FLAGS)
+
+report:  ## playability report from profile + dump
+	@$(RUN) report $(RUN_FLAGS)
 
 knowledge:  ## show local .cache learnings (client-only mods, pack meta)
 	@$(PY) scripts/knowledge.py show $(if $(PACK),--pack-id $(PACK),)
