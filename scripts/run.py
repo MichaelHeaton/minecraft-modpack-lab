@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -11,6 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 LAB_SH = ROOT / "lab" / "lab.sh"
 PACKS = ROOT / "scripts" / "packs.py"
+KNOWLEDGE = ROOT / "scripts" / "knowledge.py"
 SNAP2DUMP = ROOT / "scripts" / "snapshot_to_dump.py"
 REACH = ROOT / "scripts" / "series_reach.py"
 EXAMPLES = ROOT / "examples" / "reach"
@@ -29,6 +32,72 @@ def resolve_pack(selector: str | None) -> tuple[str, Path, Path]:
         sys.exit("resolve did not write a result")
     pid, path, out = RESULT.read_text(encoding="utf-8").strip().split("\t", 2)
     return pid, Path(path), Path(out)
+
+
+def toml_get(pack: Path, key: str) -> str:
+    text = (pack / "pack.toml").read_text(encoding="utf-8", errors="replace")
+    m = re.search(rf'(?m)^{re.escape(key)}\s*=\s*"([^"]+)"', text)
+    return m.group(1) if m else ""
+
+
+def seed_excludes(pack_id: str, out_dir: Path) -> None:
+    excl = out_dir / "exclude-mods.txt"
+    excl.parent.mkdir(parents=True, exist_ok=True)
+    if not excl.exists():
+        excl.write_text("", encoding="utf-8")
+    subprocess.call(
+        [sys.executable, str(KNOWLEDGE), "seed", "--pack-id", pack_id, "--exclude-file", str(excl)],
+        cwd=ROOT,
+    )
+
+
+def learn_excludes(pack_id: str, pack_path: Path, out_dir: Path, snap: Path) -> None:
+    excl = out_dir / "exclude-mods.txt"
+    meta = {
+        "pack": pack_id,
+        "path": str(pack_path),
+        "minecraft": toml_get(pack_path, "minecraft"),
+        "neoforge": toml_get(pack_path, "neoforge"),
+        "snapshot": str(snap) if snap.exists() else "",
+    }
+    if snap.exists():
+        try:
+            data = json.loads(snap.read_text(encoding="utf-8"))
+            meta["recipes"] = len(data.get("recipes", {}))
+            meta["tags"] = len(data.get("tags", {}))
+            meta["done"] = data.get("done")
+        except (OSError, ValueError):
+            pass
+    dump = out_dir / "recipe_data.json"
+    if dump.exists():
+        try:
+            d = json.loads(dump.read_text(encoding="utf-8"))
+            meta["dump_items"] = d.get("item_count")
+            meta["dump_source"] = d.get("source")
+        except (OSError, ValueError):
+            pass
+    subprocess.call(
+        [
+            sys.executable,
+            str(KNOWLEDGE),
+            "learn",
+            "--pack-id",
+            pack_id,
+            "--exclude-file",
+            str(excl),
+            "--meta",
+            json.dumps(meta),
+        ],
+        cwd=ROOT,
+    )
+
+
+def run_snapshot(pack_id: str, pack_path: Path, out_dir: Path, lab_args: list[str]) -> int:
+    seed_excludes(pack_id, out_dir)
+    rc = subprocess.call([str(LAB_SH), "snapshot", *lab_args], cwd=ROOT)
+    if rc == 0:
+        learn_excludes(pack_id, pack_path, out_dir, out_dir / "snapshot.json")
+    return rc
 
 
 def main() -> int:
@@ -65,10 +134,10 @@ def main() -> int:
         return subprocess.call([str(LAB_SH), "doctor", *lab_args], cwd=ROOT)
 
     if a.command == "snapshot":
-        return subprocess.call([str(LAB_SH), "snapshot", *lab_args], cwd=ROOT)
+        return run_snapshot(pid, pack_path, out_dir, lab_args)
 
     if a.command in ("dump", "analyze"):
-        rc = subprocess.call([str(LAB_SH), "snapshot", *lab_args], cwd=ROOT)
+        rc = run_snapshot(pid, pack_path, out_dir, lab_args)
         if rc != 0:
             return rc
         snap = out_dir / "snapshot.json"
@@ -77,6 +146,8 @@ def main() -> int:
             [sys.executable, str(SNAP2DUMP), "--snapshot", str(snap), "--out", str(dump)],
             cwd=ROOT,
         )
+        if rc == 0:
+            learn_excludes(pid, pack_path, out_dir, snap)
         if rc != 0 or a.command == "dump":
             return rc
         a.command = "check"

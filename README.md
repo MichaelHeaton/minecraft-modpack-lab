@@ -55,6 +55,8 @@ examples/reach/      example start + targets (pack-specific files stay in pack r
 packs.toml           optional shared defaults (Colony Protocol paths)
 packs.local.toml     your machine registry (gitignored)
 out/<pack-id>/       snapshots, dumps, server dirs (gitignored)
+.cache/              local learnings (client-only mods, pack meta; gitignored)
+docs/knowledge.md    how the local cache works
 ```
 
 ## Requirements

@@ -1,6 +1,9 @@
 # Run outputs (per-pack snapshots, server dirs, dumps)
 /out/
 
+# Local learnings (client-only mods, per-pack excludes/meta) — never commit
+/.cache/
+
 # Local-only pack registry overrides (machine paths)
 /packs.local.toml
 

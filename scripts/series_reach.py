@@ -49,6 +49,21 @@ SINGULAR = {
     "crystals": "crystal", "shards": "shard", "seeds": "seeds", "dyes": "dye", "foods": "", "buckets": "bucket",
 }
 
+# Recipe results that are placeholders / debug blocks — never treat as a craft route.
+JUNK_ITEMS = {
+    "minecraft:barrier",
+    "minecraft:air",
+    "minecraft:light",
+    "minecraft:structure_void",
+    "minecraft:structure_block",
+    "minecraft:jigsaw",
+    "minecraft:command_block",
+    "minecraft:repeating_command_block",
+    "minecraft:chain_command_block",
+    "minecraft:debug_stick",
+    "minecraft:knowledge_book",
+}
+
 
 # Vanilla tags are not in any mod jar. Item ids (or name suffixes starting with "*") for the ones recipes use most.
 VANILLA_TAGS = {
@@ -288,8 +303,13 @@ class World:
                     self.via[bucket] = ("(fill bucket)", "", [fluid, "minecraft:bucket"])
                     changed = True
             for item, entry in self.recipes.items():
+                if item in JUNK_ITEMS:
+                    continue
                 for r in entry["mod"]:
                     if r.get("removed") or r.get("inactive") or r["type"] in self.disabled or not r["ings"]:
+                        continue
+                    # Skip recipes that need a junk placeholder as an ingredient
+                    if any(ing["type"] == "item" and ing["value"] in JUNK_ITEMS for ing in r["ings"]):
                         continue
                     d = self.usable(r, item)
                     if d is not None and (item not in self.items or d < self.items[item]):

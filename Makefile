@@ -33,7 +33,7 @@ RUN_FLAGS += $(if $(ITEM),--item $(ITEM),)
 
 .DEFAULT_GOAL := help
 
-.PHONY: help packs add remove pick doctor snapshot dump check why blocked tags analyze
+.PHONY: help packs add remove pick doctor snapshot dump check why blocked tags analyze knowledge
 
 help:  ## show targets
 	@echo "modpack-lab — analyze packwiz NeoForge packs (recipes the server really loads)"
@@ -43,6 +43,7 @@ help:  ## show targets
 	@echo "  make add DIR=/path/to/pack         register a pack (saved in packs.local.toml)"
 	@echo "  make remove ID=liminal             unregister a local pack"
 	@echo "  make pick                          choose current pack (1/2/3…)"
+	@echo "  make knowledge                     show local learnings (.cache/, gitignored)"
 	@echo ""
 	@echo "Analyze  (add PACK=id|N|/path  or omit to pick)"
 	@echo "  make doctor                        check Docker / pack / RAM / port"
@@ -61,7 +62,8 @@ help:  ## show targets
 	@echo "  make check PACK=liminal START=examples/reach/verdant.json"
 	@echo "  make why PACK=liminal ITEM=mekanism:ingot_osmium"
 	@echo ""
-	@echo "Outputs land in out/<pack-id>/ (gitignored). Pack repos are never modified."
+	@echo "Outputs: out/<pack-id>/ (large). Learnings: .cache/ (client-only mods, meta)."
+	@echo "Both gitignored. Pack repos are never modified."
 
 packs:  ## list registered packs
 	@$(PACKS) list
@@ -100,3 +102,6 @@ tags:  ## unresolved ingredient tags
 
 analyze:  ## dump + check (needs EULA=1)
 	@$(RUN) analyze $(RUN_FLAGS)
+
+knowledge:  ## show local .cache learnings (client-only mods, pack meta)
+	@$(PY) scripts/knowledge.py show $(if $(PACK),--pack-id $(PACK),)
