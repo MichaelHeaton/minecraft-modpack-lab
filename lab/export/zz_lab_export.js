@@ -2,7 +2,8 @@
 // Prints every recipe the server ends up with, and every item tag those recipes use, as
 // "[LABDUMP] ..." lines in the KubeJS server log. lab/parse_log.py reads them back.
 // The file name sorts last so it runs after the pack's own scripts.
-// Written for KubeJS 7 (NeoForge 1.21.1); each API call is wrapped so one failure cannot stop the dump.
+// Loot tables / GLMs are extracted from jars after the snapshot (scripts/extract_loot.py).
+// That is more reliable than guessing KubeJS loot APIs across versions.
 
 ServerEvents.recipes(function (event) {
   var count = 0;

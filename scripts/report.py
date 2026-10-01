@@ -91,6 +91,14 @@ def report(pack_id: str, dump_path: Path) -> int:
 
     # Skipped recipe types — coverage debt
     skipped = dump.get("skipped_types") or {}
+    non_route = dump.get("non_route_types") or {}
+    loot = dump.get("loot") or {}
+    print()
+    print(f"## Loot / GLM coverage")
+    print(f"  {len(loot)} loot keys in dump "
+          f"(entities={sum(1 for k in loot if k.startswith('entities/'))}, "
+          f"chests={sum(1 for k in loot if k.startswith('chests/'))}, "
+          f"blocks={sum(1 for k in loot if k.startswith('blocks/'))})")
     if skipped:
         print()
         print("## Unparsed recipe types (coverage debt — may hide real routes)")
@@ -98,6 +106,13 @@ def report(pack_id: str, dump_path: Path) -> int:
             print(f"  {n:>5}  {rtype}")
         if len(skipped) > 12:
             print(f"  ... {len(skipped) - 12} more types")
+    if non_route:
+        print()
+        print("## Non-route types (intentionally ignored — no item craft path)")
+        for rtype, n in sorted(non_route.items(), key=lambda kv: -kv[1])[:8]:
+            print(f"  {n:>5}  {rtype}")
+        if len(non_route) > 8:
+            print(f"  ... {len(non_route) - 8} more types")
 
     print()
     rc = 0 if not bad else 1

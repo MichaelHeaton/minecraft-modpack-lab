@@ -151,10 +151,19 @@ def main() -> int:
             return rc
         snap = out_dir / "snapshot.json"
         dump = out_dir / "recipe_data.json"
-        rc = subprocess.call(
-            [sys.executable, str(SNAP2DUMP), "--snapshot", str(snap), "--out", str(dump)],
-            cwd=ROOT,
-        )
+        convert_cmd = [
+            sys.executable,
+            str(SNAP2DUMP),
+            "--snapshot",
+            str(snap),
+            "--out",
+            str(dump),
+            "--mods-dir",
+            str(out_dir / "server" / "mods"),
+            "--server-dir",
+            str(out_dir / "server"),
+        ]
+        rc = subprocess.call(convert_cmd, cwd=ROOT)
         if rc == 0:
             learn_excludes(pid, pack_path, out_dir, snap)
         if rc != 0:

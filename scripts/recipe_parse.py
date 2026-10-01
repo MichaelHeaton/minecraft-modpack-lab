@@ -48,6 +48,37 @@ def get_result_ids(data: dict) -> list[str]:
     if rtype in ("exdeorum:water_crucible", "exdeorum:lava_crucible") and data.get("fluid"):
         rid = _stack_id(data["fluid"])
         return [rid] if rid else []
+    # AE2 cell disassembly → housing + components
+    if rtype == "ae2:storage_cell_disassembly":
+        for v in data.get("cell_disassembly_items") or []:
+            rid = _stack_id(v)
+            if rid and rid not in found:
+                found.append(rid)
+        return found
+    if rtype == "ae2:storage_cell_upgrade":
+        for key in ("result_cell", "result_component"):
+            val = data.get(key)
+            if isinstance(val, str):
+                found.append(val)
+            else:
+                rid = _stack_id(val) if val else None
+                if rid:
+                    found.append(rid)
+        return found
+    if rtype == "ae2:crafting_unit_transform" and isinstance(data.get("upgraded_block"), str):
+        return [data["upgraded_block"]]
+    # Botany Pots crop drops
+    if rtype == "botanypots:crop":
+        drops = data.get("drops") or {}
+        items = drops.get("items") if isinstance(drops, dict) else None
+        if isinstance(items, list):
+            for entry in items:
+                if not isinstance(entry, dict):
+                    continue
+                rid = _stack_id(entry.get("result") or entry)
+                if rid and rid not in found:
+                    found.append(rid)
+        return found
     for key in (
         "result", "results", "output", "outputs", "main_output", "secondary_output",
         "item_output", "chemical_output", "fluid_output", "fluid_result", "byproducts",
@@ -185,6 +216,28 @@ def ingredients_from(data: dict) -> list[dict]:
                 if fi:
                     out.append(fi)
         return [i for i in out if i.get("value")]
+
+    if rtype == "ae2:storage_cell_disassembly" and data.get("cell"):
+        return [norm_ing(data["cell"])]
+
+    if rtype == "ae2:storage_cell_upgrade":
+        for key in ("input_cell", "input_component"):
+            if data.get(key):
+                out.append(norm_ing(data[key]))
+        return [i for i in out if i.get("value")]
+
+    if rtype == "ae2:crafting_unit_transform":
+        # Needs a crafting unit block in-world + upgrade item; model the upgrade item only
+        if data.get("upgrade_item"):
+            return [norm_ing(data["upgrade_item"])]
+        return []
+
+    if rtype == "botanypots:crop" and data.get("input"):
+        return [norm_ing(data["input"])]
+
+    if rtype == "botanypots:block_derived_crop" and data.get("input"):
+        # Output is the block itself (growth); treat as identity — skip unless display result
+        return [norm_ing(data["input"])]
 
     if "crafting_shaped" in rtype:
         pattern = data.get("pattern", [])

@@ -33,7 +33,7 @@ RUN_FLAGS += $(if $(ITEM),--item $(ITEM),)
 
 .DEFAULT_GOAL := help
 
-.PHONY: help packs add remove pick doctor snapshot dump check why blocked tags analyze knowledge report
+.PHONY: help packs add remove pick doctor snapshot dump check why blocked tags analyze knowledge report convert
 
 help:  ## show targets
 	@echo "modpack-lab — is this pack playable after world tweaks?"
@@ -49,6 +49,7 @@ help:  ## show targets
 	@echo "  make doctor                        check Docker / pack / RAM / port"
 	@echo "  make dump EULA=1                   headless snapshot → recipe_data.json"
 	@echo "  make report                        playability report (profile world flags + targets)"
+	@echo "  make convert PACK=id               re-parse snapshot + extract loot (no Docker)"
 	@echo "  make analyze EULA=1                dump + report"
 	@echo "  make check                         reachability only"
 	@echo "  make why ITEM=mod:item             cheapest craft chain"
@@ -98,6 +99,14 @@ analyze:  ## dump + report (needs EULA=1)
 
 report:  ## playability report from profile + dump
 	@$(RUN) report $(RUN_FLAGS)
+
+convert:  ## re-parse snapshot → recipe_data (+ loot) without Docker
+	@test -n "$(PACK)" || (echo "usage: make convert PACK=verdant"; exit 2)
+	@$(PY) scripts/snapshot_to_dump.py \
+		--snapshot out/$(PACK)/snapshot.json \
+		--out out/$(PACK)/recipe_data.json \
+		--mods-dir out/$(PACK)/server/mods \
+		--server-dir out/$(PACK)/server
 
 knowledge:  ## show local .cache learnings (client-only mods, pack meta)
 	@$(PY) scripts/knowledge.py show $(if $(PACK),--pack-id $(PACK),)
