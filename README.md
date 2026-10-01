@@ -33,6 +33,7 @@ See [docs/profiles.md](docs/profiles.md). Examples: `profiles/verdant.json`, `pr
 | Command | What |
 |---|---|
 | `make dump EULA=1` | Headless Docker snapshot → `out/<id>/recipe_data.json` |
+| `make convert` | Re-parse snapshot + extract loot/GLMs from jars (no Docker) |
 | `make report` | Playability report (targets + chicken-egg signals) |
 | `make analyze EULA=1` | Dump + report |
 | `make why ITEM=…` | Cheapest craft chain |
@@ -47,5 +48,7 @@ lab/                 headless snapshot (Docker + KubeJS exporter)
 scripts/             registry, dump convert, reach, report, profiles
 profiles/            world flags + start/targets per pack
 examples/reach/      example start sets and target lists
-docs/                profiles, knowledge cache
+docs/                profiles, knowledge, loot/GLM extract
 ```
+
+Loot tables and NeoForge GLMs are jar-scanned on convert — see [docs/loot.md](docs/loot.md).
