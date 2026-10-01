@@ -6,8 +6,10 @@
       removing them from index.toml and updating the index hash in pack.toml. The original pack is untouched.
 
   packtool.py detect --log FILE [--log FILE] --mods-dir DIR --pack MODS_PW_DIR
-      Find mods the server could not load because they are client-only (class loaded on the wrong dist).
-      Prints one pw.toml name per line. Exit 0 whether or not any were found.
+      Find mods to leave out of the next server attempt:
+        - client-only (invalid dist / client class on dedicated server)
+        - CurseForge API exclusions ("must be downloaded manually")
+      Prints one pw.toml name (slug) per line. Exit 0 whether or not any were found.
 """
 from __future__ import annotations
 
@@ -19,9 +21,12 @@ import sys
 import zipfile
 from pathlib import Path
 
-SKIP_DIRS = {".git", ".lab", "dist", "node_modules", ".packwiz-cache"}
+SKIP_DIRS = {".git", ".lab", "dist", "node_modules", ".packwiz-cache", "out", ".cache"}
 CLIENT_ONLY = ("invalid dist", "DEDICATED_SERVER", "net/minecraft/client", "net.minecraft.client")
 FAILED = re.compile(r"\(([A-Za-z0-9_\-.]+)\) has failed to load correctly\s*\n\s*(.+)")
+# packwiz: "save this file to /data/mods/<jar>" or curseforge.com/minecraft/mc-mods/<slug>/files/
+CF_JAR = re.compile(r"save this file to /data/mods/([^\s]+\.jar)", re.I)
+CF_SLUG = re.compile(r"curseforge\.com/minecraft/mc-mods/([A-Za-z0-9_\-]+)/files/", re.I)
 
 
 def prune(src: Path, dst: Path, exclude: set[str]) -> None:
@@ -63,7 +68,21 @@ def jar_mod_ids(jar: Path) -> set[str]:
     return set()
 
 
-def detect(logs: list[str], mods_dir: Path, pack_mods: Path) -> list[str]:
+def _pw_index(pack_mods: Path) -> tuple[dict[str, str], dict[str, str]]:
+    """filename→slug and slug→slug for pack mods/*.pw.toml."""
+    by_file: dict[str, str] = {}
+    by_slug: dict[str, str] = {}
+    for pw in pack_mods.glob("*.pw.toml"):
+        slug = pw.name[: -len(".pw.toml")]
+        by_slug[slug] = slug
+        text = pw.read_text(encoding="utf-8", errors="replace")
+        fm = re.search(r'^filename = "([^"]+)"', text, re.M)
+        if fm:
+            by_file[fm.group(1)] = slug
+    return by_file, by_slug
+
+
+def detect_client_only(logs: list[str], mods_dir: Path, pack_mods: Path) -> list[str]:
     bad_ids: set[str] = set()
     for path in logs:
         try:
@@ -74,12 +93,34 @@ def detect(logs: list[str], mods_dir: Path, pack_mods: Path) -> list[str]:
             if any(tok in m.group(2) for tok in CLIENT_ONLY):
                 bad_ids.add(m.group(1))
     jars = {j.name for j in mods_dir.glob("*.jar") if jar_mod_ids(j) & bad_ids}
-    slugs = []
-    for pw in sorted(pack_mods.glob("*.pw.toml")):
-        fm = re.search(r'^filename = "([^"]+)"', pw.read_text(encoding="utf-8", errors="replace"), re.M)
-        if fm and fm.group(1) in jars:
-            slugs.append(pw.name[: -len(".pw.toml")])
-    return slugs
+    by_file, _ = _pw_index(pack_mods)
+    return sorted({by_file[j] for j in jars if j in by_file})
+
+
+def detect_cf_excluded(logs: list[str], pack_mods: Path) -> list[str]:
+    """Mods packwiz could not download because CurseForge blocked the API."""
+    by_file, by_slug = _pw_index(pack_mods)
+    found: set[str] = set()
+    for path in logs:
+        try:
+            text = Path(path).read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        if "excluded from the CurseForge API" not in text and "must be downloaded manually" not in text:
+            continue
+        for m in CF_JAR.finditer(text):
+            jar = m.group(1)
+            if jar in by_file:
+                found.add(by_file[jar])
+        for m in CF_SLUG.finditer(text):
+            slug = m.group(1)
+            if slug in by_slug:
+                found.add(slug)
+    return sorted(found)
+
+
+def detect(logs: list[str], mods_dir: Path, pack_mods: Path) -> list[str]:
+    return sorted(set(detect_client_only(logs, mods_dir, pack_mods)) | set(detect_cf_excluded(logs, pack_mods)))
 
 
 def main() -> int:

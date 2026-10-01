@@ -82,7 +82,10 @@ def cmd_learn(a: argparse.Namespace) -> int:
     mods = data.setdefault("mods", {})
     now = datetime.now(timezone.utc).isoformat()
     for slug in slugs:
-        entry = mods.setdefault(slug, {"first_seen": now, "packs": [], "reason": "client-only / invalid dist"})
+        entry = mods.setdefault(
+            slug,
+            {"first_seen": now, "packs": [], "reason": "excluded from dedicated-server snapshot"},
+        )
         if pack_id not in entry["packs"]:
             entry["packs"].append(pack_id)
         entry["last_seen"] = now

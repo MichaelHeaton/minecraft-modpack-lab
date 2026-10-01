@@ -122,7 +122,7 @@ snapshot() {
       found="$(python3 "$HERE/packtool.py" detect --log "$OUT/lab.log" --mods-dir "$srv/mods" --pack "$PACK/mods" || true)"
       found="$(comm -13 <(sort -u "$excl") <(printf '%s\n' "$found" | sort -u) | sed '/^$/d')"
       if [[ -n "$found" ]]; then
-        echo "client-only mods the server cannot load; leaving them out and trying again:"
+        echo "mods the server/installer cannot use; leaving them out and trying again:"
         printf '  %s\n' $found
         printf '%s\n' $found >>"$excl"
         continue
@@ -130,7 +130,7 @@ snapshot() {
     fi
     echo "the server $( [[ $status == exited ]] && echo stopped || echo "timed out after ${TIMEOUT}s" ) before the dump finished. Last log lines:" >&2
     tail -60 "$OUT/lab.log" >&2
-    echo "(full log: $OUT/lab.log; if a mod could not be downloaded, put its jar in $OUT/extra-mods/ and run again)" >&2
+    echo "(full log: $OUT/lab.log; CF-blocked jars can also be pruned automatically on retry)" >&2
     exit 1
   done
 
@@ -139,7 +139,7 @@ snapshot() {
   python3 "$HERE/parse_log.py" --pack-name "$(toml_get name)" --out "$OUT/snapshot.json" \
     --log "$srv/logs/kubejs/server.log" --log "$srv/logs/latest.log"
   if [[ -s "$excl" ]]; then
-    echo "left out as client-only ($(wc -l <"$excl" | tr -d ' ')); consider 'side = \"client\"' in their pw.toml files:"
+    echo "left out ($(wc -l <"$excl" | tr -d ' ')); consider side=\"client\" or a manual jar for:"
     sed 's/^/  /' "$excl"
   fi
   echo "snapshot: $OUT/snapshot.json"
