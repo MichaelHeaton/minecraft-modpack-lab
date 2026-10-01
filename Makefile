@@ -33,7 +33,7 @@ RUN_FLAGS += $(if $(ITEM),--item $(ITEM),)
 
 .DEFAULT_GOAL := help
 
-.PHONY: help packs add remove pick doctor snapshot dump check why blocked tags analyze knowledge report convert compare
+.PHONY: help packs add remove pick doctor snapshot dump check why blocked tags analyze knowledge report convert compare web serve web-compare progression insights
 
 help:  ## show targets
 	@echo "modpack-lab — is this pack playable after world tweaks?"
@@ -49,8 +49,14 @@ help:  ## show targets
 	@echo "  make doctor                        check Docker / pack / RAM / port"
 	@echo "  make dump EULA=1                   headless snapshot → recipe_data.json"
 	@echo "  make report                        playability report (profile world flags + targets)"
+	@echo "  make web                            rebuild hub + all dumped packs → out/web/"
+	@echo "  make web PACK=id                   rebuild one pack + hub"
+	@echo "  make serve                         generate hub + python http.server :8765"
+	@echo "  make web-compare A=id B=id         compare into out/web/compare/"
 	@echo "  make convert PACK=id               re-parse snapshot + extract loot (no Docker)"
 	@echo "  make compare A=id B=id [ITEM=…]    why pack A unlocks what B does not"
+	@echo "  make insights PACK=id              jar+config economics → out/<id>/insights/"
+	@echo "  make progression PACK=id           quest-chapter draft from reach depths"
 	@echo "  make analyze EULA=1                dump + report"
 	@echo "  make check                         reachability only"
 	@echo "  make why ITEM=mod:item             cheapest craft chain"
@@ -58,6 +64,7 @@ help:  ## show targets
 	@echo "  make tags                          unresolved ingredient tags"
 	@echo ""
 	@echo "Profiles: profiles/<id>.json (world + pack_namespaces). See docs/profiles.md + docs/roadmap.md"
+	@echo "Web UI: make web / make serve (human front-end). CLI remains for agents/CI."
 	@echo "Outputs: out/<id>/  Learnings: .cache/  (both gitignored)"
 
 packs:  ## list registered packs
@@ -100,6 +107,22 @@ analyze:  ## dump + report (needs EULA=1)
 
 report:  ## playability report from profile + dump
 	@$(RUN) report $(RUN_FLAGS)
+	@echo ""
+	@echo "Web: make web && make serve  →  http://127.0.0.1:8765/"
+
+web:  ## static HTML hub → out/web/ (all dumps, or PACK=id)
+	@$(PY) scripts/web_report.py $(if $(PACK),--pack "$(PACK)",--all)
+
+serve:  ## generate hub and serve at http://127.0.0.1:8765/
+	@$(PY) scripts/web_report.py $(if $(PACK),--pack "$(PACK)",--all)
+	@echo ""
+	@echo "Serving out/web/ at http://127.0.0.1:8765/"
+	@echo "Open http://127.0.0.1:8765/  (pack switcher in the nav)"
+	@cd out/web && $(PY) -m http.server 8765 --bind 127.0.0.1
+
+web-compare:  ## compare two packs into the hub
+	@test -n "$(A)" -a -n "$(B)" || (echo "usage: make web-compare A=verdant B=liminal"; exit 2)
+	@$(PY) scripts/web_report.py --compare "$(A)" "$(B)"
 
 convert:  ## re-parse snapshot → recipe_data (+ loot) without Docker
 	@test -n "$(PACK)" || (echo "usage: make convert PACK=verdant"; exit 2)
@@ -120,6 +143,14 @@ compare:  ## why pack A unlocks what B does not (A=verdant B=liminal [ITEM=…])
 		--b out/$(B)/recipe_data.json --name-b $(B) \
 		$(if $(ITEM),--item $(ITEM),) \
 		$(if $(TARGETS),--targets $(TARGETS),)
+
+insights:  ## jar+config economics insights (PACK=id; needs prior dump)
+	@test -n "$(PACK)" || (echo "usage: make insights PACK=verdant"; exit 2)
+	@$(PY) scripts/insights_economics.py --pack-out out/$(PACK)
+
+progression:  ## quest-chapter draft from reach depths (PACK=verdant)
+	@test -n "$(PACK)" || (echo "usage: make progression PACK=verdant"; exit 2)
+	@$(PY) scripts/progression.py --pack $(PACK)
 
 knowledge:  ## show local .cache learnings (client-only mods, pack meta)
 	@$(PY) scripts/knowledge.py show $(if $(PACK),--pack-id $(PACK),)

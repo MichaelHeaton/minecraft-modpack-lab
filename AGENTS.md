@@ -13,6 +13,11 @@ make doctor PACK=<id>
 make dump PACK=<id> EULA=1
 make check PACK=<id>
 make analyze PACK=<id> EULA=1
+make insights PACK=<id>
+make progression PACK=<id>
+make web                    # hub + all dumps → out/web/
+make serve                  # generate + http://127.0.0.1:8765/ (pack switcher)
+make web-compare A=<id> B=<id>
 ```
 
 Outputs: `out/<pack-id>/`. Do not write analysis artifacts into pack repos from this tool.
