@@ -1,0 +1,25 @@
+# Shared pack registry defaults for Colony Protocol (optional).
+# Machine-specific paths belong in packs.local.toml (gitignored).
+# Prefer: make add DIR=/path/to/pack
+#
+# ~ is expanded. Paths must exist when you run a command.
+
+[packs.verdant]
+path = "~/Projects/specterrealm/esport/minecraft-modpack-cp-verdant"
+label = "Colony Protocol: Verdant"
+
+[packs.liminal]
+path = "~/Projects/specterrealm/esport/minecraft-modpack-cp-liminal"
+label = "Colony Protocol: Liminal"
+
+[packs.elysian]
+path = "~/Projects/specterrealm/esport/minecraft-modpack-cp-elysian"
+label = "Colony Protocol: Elysian"
+
+[packs.influx]
+path = "~/Projects/specterrealm/esport/minecraft-modpack-cp-influx"
+label = "Colony Protocol: Influx"
+
+[packs.ltm]
+path = "~/Projects/specterrealm/esport/minecraft-modpack-ltm"
+label = "Specter Realms LTM"

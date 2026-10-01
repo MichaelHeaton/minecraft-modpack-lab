@@ -1,0 +1,6 @@
+# Copy to packs.local.toml (gitignored) and edit paths for this machine.
+# Or just run: make add DIR=/path/to/packwiz-pack
+
+[packs.my-pack]
+path = "~/Projects/my-modpack"
+label = "My Modpack"
