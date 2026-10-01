@@ -33,14 +33,16 @@ RUN_FLAGS += $(if $(ITEM),--item $(ITEM),)
 
 .DEFAULT_GOAL := help
 
-.PHONY: help packs add remove pick doctor snapshot dump check why blocked tags analyze knowledge report convert compare web serve web-compare progression insights attribute
+.PHONY: help packs add remove pick doctor snapshot dump check why blocked tags analyze knowledge report convert compare web serve web-compare progression insights attribute refs corpus
 
 help:  ## show targets
 	@echo "modpack-lab — is this pack playable after world tweaks?"
 	@echo ""
 	@echo "Setup"
 	@echo "  make packs                         list registered packs"
-	@echo "  make add DIR=/path/to/pack         register a pack (saved in packs.local.toml)"
+	@echo "  make refs                          CurseForge reference wishlist"
+	@echo "  make add DIR=/path/to/pack         register a pack [ROLE=reference]"
+	@echo "  make corpus                        mod frequency across packs"
 	@echo "  make remove ID=liminal             unregister a local pack"
 	@echo "  make pick                          choose current pack (1/2/3…)"
 	@echo "  make knowledge                     show local learnings (.cache/, gitignored)"
@@ -71,9 +73,15 @@ help:  ## show targets
 packs:  ## list registered packs
 	@$(PACKS) list
 
-add:  ## register DIR=/path/to/pack [ID=name]
-	@test -n "$(DIR)" || (echo "usage: make add DIR=/path/to/packwiz-pack [ID=name]"; exit 2)
-	@$(PACKS) add --path "$(DIR)" $(if $(ID),--id $(ID),) $(if $(LABEL),--label "$(LABEL)",)
+add:  ## register DIR=/path/to/pack [ID=name] [ROLE=build|reference]
+	@test -n "$(DIR)" || (echo "usage: make add DIR=/path/to/packwiz-pack [ID=name] [ROLE=reference]"; exit 2)
+	@$(PACKS) add --path "$(DIR)" $(if $(ID),--id $(ID),) $(if $(LABEL),--label "$(LABEL)",) $(if $(ROLE),--role $(ROLE),)
+
+refs:  ## list CurseForge reference wishlist
+	@$(PACKS) refs
+
+corpus:  ## mod frequency across registered packs → out/corpus/
+	@$(PY) scripts/mod_corpus.py
 
 remove:  ## unregister ID=name
 	@test -n "$(ID)" || (echo "usage: make remove ID=liminal"; exit 2)

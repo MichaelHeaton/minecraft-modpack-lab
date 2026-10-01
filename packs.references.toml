@@ -1,0 +1,96 @@
+# Reference pack wishlist for modpack-lab (committed).
+# These are baselines / idea mines — not Colony Protocol builds.
+# When you download a pack locally, link it:
+#   make add DIR=/path/to/pack --id atm10 --role reference --label "All the Mods 10"
+#
+# status: wishlist | local | dumped
+
+[references.atm10]
+label = "All the Mods 10"
+curseforge = "https://www.curseforge.com/minecraft/modpacks/all-the-mods-10"
+notes = "Kitchen-sink kitchen; progression + quest baseline"
+status = "wishlist"
+
+[references.atm10-sky]
+label = "All the Mods 10 Sky"
+curseforge = "https://www.curseforge.com/minecraft/modpacks/all-the-mods-10-sky"
+notes = "Skyblock + ATM kitchen; sieving / void-world ideas"
+status = "wishlist"
+
+[references.direwolf20-s14]
+label = "FTB Presents Direwolf20 S14"
+curseforge = "https://www.curseforge.com/minecraft/modpacks/ftb-presents-direwolf20-s14"
+notes = "FTB quest teaching style"
+status = "wishlist"
+
+[references.regrowth]
+label = "Regrowth"
+curseforge = "https://www.curseforge.com/minecraft/modpacks/regrowth"
+notes = "Newer Regrowth — may be spiritual successor"
+status = "wishlist"
+
+[references.regrowth-hqm]
+label = "Regrowth: An HQM Pack"
+curseforge = "https://www.curseforge.com/minecraft/modpacks/regrowth-an-hqm-pack"
+notes = "Classic Regrowth that was actually played"
+status = "wishlist"
+
+[references.minecolonies-official]
+label = "MineColonies Official"
+curseforge = "https://www.curseforge.com/minecraft/modpacks/minecolonies-official"
+notes = "Colony-focused; relevant to Colony Protocol"
+status = "wishlist"
+
+[references.ftb-evolution]
+label = "FTB Evolution"
+curseforge = "https://www.curseforge.com/minecraft/modpacks/ftb-evolution"
+notes = "Modern FTB kitchen / questing"
+status = "wishlist"
+
+[references.minecolonies-dimensional]
+label = "MineColonies Dimensional Adventure"
+curseforge = "https://www.curseforge.com/minecraft/modpacks/minecolonies-dimensional-adventure"
+notes = "Colony + dimensions"
+status = "wishlist"
+
+[references.crash-landing]
+label = "Crash Landing"
+curseforge = "https://www.curseforge.com/minecraft/modpacks/crash-landing"
+notes = "Beloved skyblock / hard-start classic"
+status = "wishlist"
+
+[references.rlcraft]
+label = "RLCraft"
+curseforge = "https://www.curseforge.com/minecraft/modpacks/rlcraft"
+notes = "Hardcore overhaul; difficulty / gating ideas"
+status = "wishlist"
+
+[references.homestead-cozy]
+label = "Homestead Cozy"
+curseforge = "https://www.curseforge.com/minecraft/modpacks/homestead-cozy"
+notes = "Cozy / homestead vibe"
+status = "wishlist"
+
+[references.skyfactory-4]
+label = "SkyFactory 4"
+curseforge = "https://www.curseforge.com/minecraft/modpacks/skyfactory-4"
+notes = "Skyblock factory progression"
+status = "wishlist"
+
+[references.ciscos-adventure-rpg]
+label = "Cisco's Adventure RPG Ultimate"
+curseforge = "https://www.curseforge.com/minecraft/modpacks/ciscos-adventure-rpg-ultimate"
+notes = "RPG / adventure questing"
+status = "wishlist"
+
+[references.society-sunlit-valley]
+label = "Society: Sunlit Valley"
+curseforge = "https://www.curseforge.com/minecraft/modpacks/society-sunlit-valley"
+notes = "Social / valley farming vibe"
+status = "wishlist"
+
+[references.dungeon-heroes]
+label = "Dungeon Heroes"
+curseforge = "https://www.curseforge.com/minecraft/modpacks/dungeon-heroes"
+notes = "Dungeon RPG focus"
+status = "wishlist"

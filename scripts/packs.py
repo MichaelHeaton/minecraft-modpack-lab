@@ -5,20 +5,23 @@ Keeps a numbered list of packwiz packs on this machine so make targets can pick
 by id, number, path, or interactive prompt.
 
 Files (merged, local wins):
-  packs.toml         — shared / committed defaults (optional)
-  packs.local.toml   — machine-specific paths (gitignored; preferred for real work)
-  .current-pack      — last interactively chosen id (gitignored)
+  packs.toml              — shared / committed defaults (optional)
+  packs.local.toml        — machine-specific paths (gitignored; preferred)
+  packs.references.toml   — CurseForge wishlist (no path until downloaded)
+  .current-pack           — last interactively chosen id (gitignored)
 
 Schema:
   [packs.<id>]
   path = "/absolute/or~/expanded/path"
   label = "optional display name"
+  role = "build" | "reference"   # default build
 
 Commands:
   list
-  add --path DIR [--id ID] [--label TEXT]
+  refs                   list reference wishlist (+ local refs)
+  add --path DIR [--id ID] [--label TEXT] [--role build|reference]
   remove --id ID
-  resolve [SELECTOR]     print: id\\tpath\\tout_dir  (SELECTOR = id | number | path)
+  resolve [SELECTOR]     print: id\\tpath\\tout_dir
   pick                   interactive resolve; remembers choice in .current-pack
 """
 from __future__ import annotations
@@ -37,6 +40,7 @@ except ModuleNotFoundError:  # pragma: no cover
 ROOT = Path(__file__).resolve().parent.parent
 SHARED = ROOT / "packs.toml"
 LOCAL = ROOT / "packs.local.toml"
+REFERENCES = ROOT / "packs.references.toml"
 CURRENT = ROOT / ".current-pack"
 OUT_ROOT = ROOT / "out"
 
@@ -52,6 +56,11 @@ def _read_toml(path: Path) -> dict:
         return tomllib.load(fh)
 
 
+def _norm_role(raw: object) -> str:
+    role = str(raw or "build").strip().lower()
+    return role if role in ("build", "reference") else "build"
+
+
 def load_packs() -> dict[str, dict]:
     """Merge shared + local; local overrides same id."""
     merged: dict[str, dict] = {}
@@ -63,15 +72,49 @@ def load_packs() -> dict[str, dict]:
                 "id": pid,
                 "path": str(_expand(str(entry["path"]))),
                 "label": str(entry.get("label") or pid),
+                "role": _norm_role(entry.get("role")),
             }
     return dict(sorted(merged.items()))
+
+
+def load_references() -> dict[str, dict]:
+    """Wishlist + any reference-role packs that are already local."""
+    wishlist: dict[str, dict] = {}
+    for rid, entry in (_read_toml(REFERENCES).get("references") or {}).items():
+        if not isinstance(entry, dict):
+            continue
+        wishlist[rid] = {
+            "id": rid,
+            "label": str(entry.get("label") or rid),
+            "curseforge": str(entry.get("curseforge") or ""),
+            "notes": str(entry.get("notes") or ""),
+            "status": str(entry.get("status") or "wishlist"),
+            "path": str(entry["path"]) if entry.get("path") else "",
+        }
+    # Local reference packs override / enrich
+    for pid, entry in load_packs().items():
+        if entry.get("role") != "reference":
+            continue
+        base = wishlist.get(pid) or {"id": pid, "curseforge": "", "notes": ""}
+        base.update(
+            {
+                "id": pid,
+                "label": entry["label"],
+                "path": entry["path"],
+                "status": "dumped"
+                if (OUT_ROOT / pid / "recipe_data.json").is_file()
+                else "local",
+            }
+        )
+        wishlist[pid] = base
+    return dict(sorted(wishlist.items()))
 
 
 def _write_local(packs: dict[str, dict]) -> None:
     lines = [
         "# Machine-local pack registry for modpack-lab (gitignored).",
-        "# Add with: make add DIR=/path/to/pack",
-        "# Or edit this file. Shared defaults live in packs.toml.",
+        "# Add with: make add DIR=/path/to/pack [--role build|reference]",
+        "# Shared defaults: packs.toml · Reference wishlist: packs.references.toml",
         "",
     ]
     for pid, entry in sorted(packs.items()):
@@ -79,6 +122,9 @@ def _write_local(packs: dict[str, dict]) -> None:
         lines.append(f'path = "{entry["path"]}"')
         if entry.get("label") and entry["label"] != pid:
             lines.append(f'label = "{entry["label"]}"')
+        role = _norm_role(entry.get("role"))
+        if role != "build":
+            lines.append(f'role = "{role}"')
         lines.append("")
     LOCAL.write_text("\n".join(lines), encoding="utf-8")
 
@@ -110,16 +156,41 @@ def cmd_list(_a: argparse.Namespace) -> int:
     if not packs:
         print("No packs registered yet.")
         print("  make add DIR=/path/to/packwiz-pack")
-        print("  or copy packs.example.toml → packs.local.toml and edit paths")
+        print("  make refs   # CurseForge reference wishlist")
         return 0
-    print(f"{'#':>3}  {'id':<16}  path")
+    print(f"{'#':>3}  {'id':<16}  {'role':<10}  path")
     for i, (pid, e) in enumerate(packs.items(), 1):
         exists = "✓" if Path(e["path"]).is_dir() else "✗"
-        print(f"{i:>3}  {pid:<16}  {exists}  {e['path']}")
+        print(f"{i:>3}  {pid:<16}  {e.get('role', 'build'):<10}  {exists}  {e['path']}")
         if e["label"] != pid:
-            print(f"{'':>3}  {'':<16}     ({e['label']})")
+            print(f"{'':>3}  {'':<16}  {'':<10}     ({e['label']})")
     if CURRENT.exists():
         print(f"\ncurrent: {CURRENT.read_text(encoding='utf-8').strip()}")
+    refs = load_references()
+    wish = sum(1 for r in refs.values() if r.get("status") == "wishlist")
+    if wish:
+        print(f"\nreference wishlist: {wish} (make refs)")
+    return 0
+
+
+def cmd_refs(_a: argparse.Namespace) -> int:
+    refs = load_references()
+    if not refs:
+        print("No references in packs.references.toml")
+        return 0
+    print(f"{'id':<28}  {'status':<10}  label")
+    for rid, e in refs.items():
+        print(f"{rid:<28}  {e.get('status', '?'):<10}  {e['label']}")
+        if e.get("curseforge"):
+            print(f"  {e['curseforge']}")
+        if e.get("path"):
+            print(f"  path: {e['path']}")
+        if e.get("notes"):
+            print(f"  note: {e['notes']}")
+    print(
+        "\nLink a download: make add DIR=/path/to/pack --id atm10 "
+        "--role reference --label \"All the Mods 10\""
+    )
     return 0
 
 
@@ -128,15 +199,21 @@ def cmd_add(a: argparse.Namespace) -> int:
     _validate_pack(path)
     pid = a.id or _slug_from_path(path)
     label = a.label or _pack_label(path)
-    # Prefer writing only to local registry
+    role = _norm_role(getattr(a, "role", None) or "build")
     local = _read_toml(LOCAL)
     packs = dict(local.get("packs") or {})
-    packs[pid] = {"path": str(path), "label": label}
-    # Also keep any shared-only packs that aren't being overwritten? No — local file
-    # should only contain local entries. Shared stays in packs.toml.
-    _write_local({k: {"path": str(_expand(str(v["path"]))), "label": str(v.get("label") or k)}
-                  for k, v in packs.items()})
-    print(f"registered [{pid}] → {path}")
+    packs[pid] = {"path": str(path), "label": label, "role": role}
+    _write_local(
+        {
+            k: {
+                "path": str(_expand(str(v["path"]))),
+                "label": str(v.get("label") or k),
+                "role": _norm_role(v.get("role")),
+            }
+            for k, v in packs.items()
+        }
+    )
+    print(f"registered [{pid}] role={role} → {path}")
     print(f"  (saved in {LOCAL.name})")
     return 0
 
@@ -145,14 +222,21 @@ def cmd_remove(a: argparse.Namespace) -> int:
     local = _read_toml(LOCAL)
     packs = dict(local.get("packs") or {})
     if a.id not in packs:
-        # If only in shared, tell user to edit packs.toml
         shared = _read_toml(SHARED).get("packs") or {}
         if a.id in shared:
             sys.exit(f"'{a.id}' is in packs.toml (shared). Remove it there, or override in packs.local.toml.")
         sys.exit(f"unknown pack id: {a.id}")
     del packs[a.id]
-    _write_local({k: {"path": str(_expand(str(v["path"]))), "label": str(v.get("label") or k)}
-                  for k, v in packs.items()})
+    _write_local(
+        {
+            k: {
+                "path": str(_expand(str(v["path"]))),
+                "label": str(v.get("label") or k),
+                "role": _norm_role(v.get("role")),
+            }
+            for k, v in packs.items()
+        }
+    )
     if CURRENT.exists() and CURRENT.read_text().strip() == a.id:
         CURRENT.unlink()
     print(f"removed [{a.id}] from {LOCAL.name}")
@@ -165,7 +249,12 @@ def _resolve_selector(selector: str | None, packs: dict[str, dict]) -> dict:
         path = _expand(selector)
         _validate_pack(path)
         pid = _slug_from_path(path)
-        return {"id": pid, "path": str(path), "label": _pack_label(path)}
+        return {
+            "id": pid,
+            "path": str(path),
+            "label": _pack_label(path),
+            "role": "build",
+        }
 
     # Number
     if selector and selector.isdigit():
@@ -194,7 +283,8 @@ def _resolve_selector(selector: str | None, packs: dict[str, dict]) -> dict:
     print("Registered packs:", file=sys.stderr)
     items = list(packs.values())
     for i, e in enumerate(items, 1):
-        print(f"  {i}) {e['id']:<16} {e['label']}", file=sys.stderr)
+        role = e.get("role", "build")
+        print(f"  {i}) {e['id']:<16} [{role}] {e['label']}", file=sys.stderr)
         print(f"      {e['path']}", file=sys.stderr)
     try:
         choice = input(f"Pick [1–{len(items)}] (or id): ").strip()
@@ -230,11 +320,13 @@ def main() -> int:
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     sub.add_parser("list", help="list registered packs").set_defaults(f=cmd_list)
+    sub.add_parser("refs", help="list reference wishlist + local refs").set_defaults(f=cmd_refs)
 
     add = sub.add_parser("add", help="register a packwiz pack path")
     add.add_argument("--path", required=True)
     add.add_argument("--id")
     add.add_argument("--label")
+    add.add_argument("--role", default="build", choices=("build", "reference"))
     add.set_defaults(f=cmd_add)
 
     rem = sub.add_parser("remove", help="remove a pack from the local registry")

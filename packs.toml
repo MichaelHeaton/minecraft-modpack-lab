@@ -1,25 +1,31 @@
 # Shared pack registry defaults for Colony Protocol (optional).
 # Machine-specific paths belong in packs.local.toml (gitignored).
-# Prefer: make add DIR=/path/to/pack
+# Prefer: make add DIR=/path/to/pack [--role build|reference]
 #
-# ~ is expanded. Paths must exist when you run a command.
+# role = "build" (default) | "reference"
+# Reference wishlist (CurseForge URLs, no path yet): packs.references.toml
 
 [packs.verdant]
 path = "~/Projects/specterrealm/esport/minecraft-modpack-cp-verdant"
 label = "Colony Protocol: Verdant"
+role = "build"
 
 [packs.liminal]
 path = "~/Projects/specterrealm/esport/minecraft-modpack-cp-liminal"
 label = "Colony Protocol: Liminal"
+role = "build"
 
 [packs.elysian]
 path = "~/Projects/specterrealm/esport/minecraft-modpack-cp-elysian"
 label = "Colony Protocol: Elysian"
+role = "build"
 
 [packs.influx]
 path = "~/Projects/specterrealm/esport/minecraft-modpack-cp-influx"
 label = "Colony Protocol: Influx"
+role = "build"
 
 [packs.ltm]
 path = "~/Projects/specterrealm/esport/minecraft-modpack-ltm"
 label = "Specter Realms LTM"
+role = "build"

@@ -5,6 +5,8 @@ JEI pages. Point the lab at a packwiz pack → snapshot real recipes/tags/loot �
 ask “is this playable?”, “why does Verdant unlock crimson iron and Liminal
 doesn’t?”, “what should the quest chapter look like?”
 
+Living checklist: **[docs/backlog.md](backlog.md)** (open work + reference wishlist).
+
 ## Done now
 
 | Capability | Command / artifact |
@@ -59,13 +61,48 @@ config diffs between packs. Web UI surfaces the JSON when present.
 Clusters reachable items by mod namespace, orders chapters by median target depth,
 flags pack-only unlocks and blocked targets. Web UI surfaces the same JSON.
 
-### 4. AI-assisted pack authoring loop
+### 4. Reference packs + archetype scoring (next product layer)
 
-1. Propose a world profile + target list  
-2. `make analyze` → blocked targets  
-3. `make compare` against a known-good pack (Verdant) → missing KubeJS/datapack  
-4. Agent drafts the sieve/script/config fix in the pack repo  
-5. Re-dump → green report → lock a quest chapter  
+**Build packs** (Verdant, Liminal, …) vs **reference packs** (ATM10, Direwolf20,
+Regrowth, skyblocks you’ve played): same dump/compare/attribute pipeline, tagged
+`role = "reference"` in the registry so the hub groups them separately. References
+are idea mines and baselines, not “must be playable under our world flags.”
+
+**Archetype score** (quantify teaching vs kitchen-sink — don’t trust vibes):
+
+| Signal | Teaching / focused ↑ | Kitchen sink ↑ |
+|---|---|---|
+| Pack-origin recipe count / mod count | high | low |
+| KubeJS + datapack file density | high | low |
+| Quest book / FTB Quests present + chapter count | high | low/absent |
+| Unique mods with ≥1 design target | few, deep | many, shallow |
+| Redundant generator clusters (economics) | gated/hidden | many open |
+| Median depth of design targets | ordered ladder | flat / missing |
+
+Outputs something like `teaching_score` / `kitchensink_score` with evidence rows
+in `insights/archetype.json` and a hub badge. Verdant should score teaching;
+current Liminal should score kitchen-sink until integrations/quests land.
+
+**Mod-fit probe** (separate command later): given a candidate mod (+ optional
+reference pack that uses it), report what item namespaces it adds, which of your
+targets it unlocks, conflicts with existing generators/ores, and new holes
+(items in its recipes not reachable from your start) — the Liminal Silent Gear
+problem generalized.
+
+### 5. Pack families (defer)
+
+Grouping Verdant/Elysian/Influx as a teaching trilogy that “graduates” into Liminal
+is a content strategy, not a tool requirement yet. Soft labels on profiles
+(`family`, `tier`) are enough if you want them later; don’t build family-specific
+pipelines until that narrative proves it ships.
+
+### 6. AI-assisted pack authoring loop
+
+1. Propose a world profile + target list (+ optional reference pack)
+2. `make analyze` → blocked targets + archetype score
+3. `make attribute` / compare against reference or sibling build pack
+4. Agent drafts the sieve/script/config fix in the pack repo
+5. Re-dump → green report → lock a quest chapter
 
 ## Profile fields
 

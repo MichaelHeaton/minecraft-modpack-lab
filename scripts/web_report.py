@@ -803,28 +803,38 @@ def write_pack_site(pack_id: str, *, all_packs: list[str] | None = None) -> Path
 
 
 def write_hub(packs: list[str] | None = None) -> Path:
-    """Hub landing page listing every dumped pack."""
+    """Hub landing page listing every dumped pack + reference wishlist."""
     packs = packs if packs is not None else discover_dumped_packs()
     HUB_ROOT.mkdir(parents=True, exist_ok=True)
     copy_assets(HUB_ROOT)
 
-    cards = []
-    compare_links = []
-    for pid in packs:
+    try:
+        from packs import load_packs, load_references  # noqa: WPS433
+
+        registry = load_packs()
+        refs = load_references()
+    except Exception:
+        registry, refs = {}, {}
+
+    def role_of(pid: str) -> str:
+        return (registry.get(pid) or {}).get("role") or "build"
+
+    def card_for(pid: str) -> str | None:
         try:
             data = analyze_pack(pid)
         except FileNotFoundError:
-            continue
+            return None
         label = data["profile"].get("label") or pid
         n_ok = len(data["targets_ok"])
         n_bad = len(data["targets_bad"])
         n_tgt = n_ok + n_bad
         vcls = "ok" if data["verdict_ok"] else "fail"
         vtxt = "PLAYABLE" if data["verdict_ok"] else f"{n_bad} blocked"
-        cards.append(
+        role = role_of(pid)
+        return (
             f'<a class="pack-card" href="packs/{esc(pid)}/index.html">'
             f"<h3>{esc(label)}</h3>"
-            f'<div class="pack-id">{esc(pid)}</div>'
+            f'<div class="pack-id">{esc(pid)} · {esc(role)}</div>'
             f'<div class="verdict {vcls}">{esc(vtxt)}</div>'
             f'<p class="meta">{esc(n_ok)}/{esc(n_tgt)} targets · '
             f'{esc(data["dump"].get("item_count"))} items · '
@@ -832,6 +842,32 @@ def write_hub(packs: list[str] | None = None) -> Path:
             f"</a>"
         )
 
+    build_cards = []
+    ref_cards = []
+    for pid in packs:
+        html_card = card_for(pid)
+        if not html_card:
+            continue
+        if role_of(pid) == "reference":
+            ref_cards.append(html_card)
+        else:
+            build_cards.append(html_card)
+
+    wishlist = []
+    for rid, e in sorted(refs.items()):
+        if e.get("status") in ("local", "dumped") and rid in packs:
+            continue
+        cf = e.get("curseforge") or "#"
+        notes = e.get("notes") or "Reference pack — download, then make add --role reference"
+        wishlist.append(
+            f'<a class="pack-card" href="{esc(cf)}" target="_blank" rel="noopener">'
+            f"<h3>{esc(e.get('label') or rid)}</h3>"
+            f'<div class="pack-id">{esc(rid)} · wishlist</div>'
+            f'<p class="meta">{esc(notes)}</p>'
+            f"</a>"
+        )
+
+    compare_links = []
     if len(packs) >= 2:
         for i, a in enumerate(packs):
             for b in packs[i + 1 :]:
@@ -840,26 +876,56 @@ def write_hub(packs: list[str] | None = None) -> Path:
                     f"{esc(a)} vs {esc(b)}</a></li>"
                 )
 
+    corpus_note = ""
+    corpus_md = ROOT / "out" / "corpus" / "mods.md"
+    if corpus_md.is_file():
+        corpus_note = (
+            '<p class="section-note"><a href="corpus.html">Mod corpus</a> — '
+            "which mods are core vs unique across builds + references.</p>"
+        )
+
     body = f"""
     <header class="hero">
       <p class="kicker">modpack-lab</p>
       <h1>Packs</h1>
       <p class="lede">
-        Every pack with a local dump. Switch packs from the nav on any page.
-        Re-run <code>make web</code> after <code>make dump</code> / insights.
+        Builds you are authoring, plus reference packs for ideas and baselines.
+        Switch packs from the nav. Re-run <code>make web</code> after dumps.
       </p>
       <dl class="meta-row">
         <span class="pair"><dt>dumps</dt><dd>{esc(len(packs))}</dd></span>
+        <span class="pair"><dt>wishlist</dt><dd>{esc(len(wishlist))}</dd></span>
       </dl>
     </header>
+    {corpus_note}
 """
-    if cards:
-        body += f'<div class="pack-card-grid">{"".join(cards)}</div>'
+    body += "<section><h2>Builds</h2>"
+    if build_cards:
+        body += f'<div class="pack-card-grid">{"".join(build_cards)}</div>'
     else:
         body += (
-            '<p class="empty">No dumps yet. '
-            "Register a pack (<code>make add DIR=…</code>) then "
-            "<code>make dump PACK=… EULA=1</code> and <code>make web</code>.</p>"
+            '<p class="empty">No build dumps yet. '
+            "<code>make add DIR=…</code> then <code>make dump PACK=… EULA=1</code>.</p>"
+        )
+    body += "</section>"
+
+    body += "<section><h2>References (dumped)</h2>"
+    if ref_cards:
+        body += f'<div class="pack-card-grid">{"".join(ref_cards)}</div>'
+    else:
+        body += (
+            '<p class="empty">No local reference dumps yet. '
+            "Download a wishlist pack, then "
+            "<code>make add DIR=… --role reference --id atm10</code>.</p>"
+        )
+    body += "</section>"
+
+    if wishlist:
+        body += (
+            "<section><h2>Reference wishlist</h2>"
+            '<p class="section-note">CurseForge links — not on disk yet '
+            "(see <code>packs.references.toml</code> / <code>make refs</code>).</p>"
+            f'<div class="pack-card-grid">{"".join(wishlist)}</div></section>'
         )
 
     if compare_links:
@@ -868,6 +934,42 @@ def write_hub(packs: list[str] | None = None) -> Path:
             '<p class="section-note">Pairwise reachability + pack-recipe diffs.</p>'
             f"<ul class=\"signal-list\">{''.join(compare_links)}</ul></section>"
         )
+
+    # Optional corpus page (copy markdown-ish summary into HTML if present)
+    if corpus_md.is_file():
+        try:
+            from mod_corpus import build_corpus  # noqa: WPS433
+
+            cdata = build_corpus()
+            cbody = (
+                '<header class="hero"><p class="kicker">Corpus</p>'
+                "<h1>Mod frequency</h1>"
+                f'<p class="lede">{esc(cdata["pack_count"])} packs · '
+                f'{esc(cdata["unique_mods"])} unique mods. '
+                "Core = in most packs; unique = only one.</p></header>"
+                "<section><h2>Core (non-platform)</h2><ul class=\"signal-list\">"
+            )
+            for m in cdata["mods"]:
+                if m["band"] != "core" or m["platformish"]:
+                    continue
+                cbody += (
+                    f"<li><code>{esc(m['mod'])}</code> — "
+                    f"{esc(m['pack_count'])}/{esc(cdata['pack_count'])}</li>"
+                )
+            cbody += "</ul></section>"
+            render_page(
+                title="Mod corpus",
+                nav='      <a href="index.html">Hub</a>',
+                body=cbody,
+                out=HUB_ROOT / "corpus.html",
+                assets_rel="assets",
+                home="index.html",
+                pack_switcher=pack_switcher_html(
+                    current=None, packs=packs, page="index.html", from_hub=True
+                ),
+            )
+        except Exception:
+            pass
 
     render_page(
         title="modpack-lab — packs",
