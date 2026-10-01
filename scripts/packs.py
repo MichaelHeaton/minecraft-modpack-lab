@@ -146,9 +146,22 @@ def _pack_label(path: Path) -> str:
     return path.name
 
 
-def _validate_pack(path: Path) -> None:
-    if not (path / "pack.toml").is_file() or not (path / "index.toml").is_file():
-        sys.exit(f"not a packwiz pack (need pack.toml + index.toml): {path}")
+def _validate_pack(path: Path, *, role: str = "build") -> None:
+    """Build packs need packwiz; references only need a mods/ folder."""
+    if (path / "pack.toml").is_file() and (path / "index.toml").is_file():
+        return
+    mods = path / "mods"
+    # Prism/Curse game dir
+    if mods.is_dir() and (
+        any(mods.glob("*.jar")) or any(mods.glob("*.pw.toml")) or role == "reference"
+    ):
+        return
+    if role == "reference" and mods.is_dir():
+        return
+    sys.exit(
+        f"not a usable pack at {path}\n"
+        f"  need packwiz (pack.toml + index.toml) or a mods/ directory"
+    )
 
 
 def cmd_list(_a: argparse.Namespace) -> int:
@@ -188,18 +201,18 @@ def cmd_refs(_a: argparse.Namespace) -> int:
         if e.get("notes"):
             print(f"  note: {e['notes']}")
     print(
-        "\nLink a download: make add DIR=/path/to/pack --id atm10 "
-        "--role reference --label \"All the Mods 10\""
+        "\nLink a download: make add DIR=/path/to/pack ID=atm10 "
+        "ROLE=reference LABEL=\"All the Mods 10\""
     )
     return 0
 
 
 def cmd_add(a: argparse.Namespace) -> int:
     path = _expand(a.path)
-    _validate_pack(path)
+    role = _norm_role(getattr(a, "role", None) or "build")
+    _validate_pack(path, role=role)
     pid = a.id or _slug_from_path(path)
     label = a.label or _pack_label(path)
-    role = _norm_role(getattr(a, "role", None) or "build")
     local = _read_toml(LOCAL)
     packs = dict(local.get("packs") or {})
     packs[pid] = {"path": str(path), "label": label, "role": role}
@@ -301,7 +314,7 @@ def cmd_resolve(a: argparse.Namespace) -> int:
     path = Path(entry["path"])
     if not path.is_dir():
         sys.exit(f"pack path missing on disk: {path}")
-    _validate_pack(path)
+    _validate_pack(path, role=entry.get("role") or "build")
     out = OUT_ROOT / entry["id"]
     if a.remember or (a.selector is None):
         CURRENT.write_text(entry["id"] + "\n", encoding="utf-8")

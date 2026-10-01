@@ -33,7 +33,7 @@ RUN_FLAGS += $(if $(ITEM),--item $(ITEM),)
 
 .DEFAULT_GOAL := help
 
-.PHONY: help packs add remove pick doctor snapshot dump check why blocked tags analyze knowledge report convert compare web serve web-compare progression insights attribute refs corpus
+.PHONY: help packs add remove pick doctor snapshot dump check why blocked tags analyze knowledge report convert compare web serve web-compare progression insights attribute refs corpus discover
 
 help:  ## show targets
 	@echo "modpack-lab — is this pack playable after world tweaks?"
@@ -41,7 +41,8 @@ help:  ## show targets
 	@echo "Setup"
 	@echo "  make packs                         list registered packs"
 	@echo "  make refs                          CurseForge reference wishlist"
-	@echo "  make add DIR=/path/to/pack         register a pack [ROLE=reference]"
+	@echo "  make discover [APPLY=1]            import Prism + CurseForge instances"
+	@echo "  make add DIR=/path/to/pack         register [ID=…] [ROLE=reference] [LABEL='…']"
 	@echo "  make corpus                        mod frequency across packs"
 	@echo "  make remove ID=liminal             unregister a local pack"
 	@echo "  make pick                          choose current pack (1/2/3…)"
@@ -73,12 +74,15 @@ help:  ## show targets
 packs:  ## list registered packs
 	@$(PACKS) list
 
-add:  ## register DIR=/path/to/pack [ID=name] [ROLE=build|reference]
-	@test -n "$(DIR)" || (echo "usage: make add DIR=/path/to/packwiz-pack [ID=name] [ROLE=reference]"; exit 2)
+add:  ## register DIR=/path/to/pack [ID=name] [ROLE=build|reference] [LABEL=…]
+	@test -n "$(DIR)" || (echo "usage: make add DIR=/path/to/pack ID=atm10 ROLE=reference LABEL='All the Mods 10'"; exit 2)
 	@$(PACKS) add --path "$(DIR)" $(if $(ID),--id $(ID),) $(if $(LABEL),--label "$(LABEL)",) $(if $(ROLE),--role $(ROLE),)
 
 refs:  ## list CurseForge reference wishlist
 	@$(PACKS) refs
+
+discover:  ## scan Prism + CurseForge instances (APPLY=1 to register)
+	@$(PY) scripts/discover_launchers.py $(if $(filter 1 true TRUE yes YES,$(APPLY)),--apply,)
 
 corpus:  ## mod frequency across registered packs → out/corpus/
 	@$(PY) scripts/mod_corpus.py

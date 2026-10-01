@@ -4,11 +4,10 @@ Living checklist. Update this when priorities shift. Session todos mirror it.
 
 ## Now / next
 
-- [ ] **Reference packs** — wishlist seeded in `packs.references.toml`; download locally → `make add DIR=… --role reference --id …`
 - [ ] **Archetype scoring** — teaching vs kitchen-sink from measurable signals (`make archetype`)
 - [ ] **Mod-fit probe** — “what if I add mod X?” adds / conflicts / holes
-- [ ] **Hub polish** — Builds vs References groups (in progress with `role`)
-- [ ] **Cross-pack mod corpus** — which mods are core vs overused (`make corpus`)
+- [ ] **Download remaining wishlist refs** not yet on disk (ATM10 base, Direwolf20, Regrowth, Crash Landing, …)
+- [ ] Re-run `make corpus` after more references land
 
 ## Done recently
 
@@ -16,14 +15,16 @@ Living checklist. Update this when priorities shift. Session todos mirror it.
 - [x] Pack-origin tagging + `make compare` / `make attribute`
 - [x] Multi-pack web hub + pack switcher (`make serve`)
 - [x] Progression + economics insights
-- [x] Reference wishlist + mod corpus tooling (this pass)
+- [x] Reference wishlist + mod corpus tooling
+- [x] **Launcher discover** — `make discover APPLY=1` scans Prism + CurseForge and auto-registers
+- [x] Hub Builds vs References grouping
 
 ## Deferred
 
 - [ ] Pack **family** narrative (Verdant → Elysian → Influx → Liminal) — soft labels only until that content strategy proves out
 - [ ] Click-to-run dump from the web UI
 - [ ] Interactive tech-tree graphs
-- [ ] Auto-fetch CurseForge / Modrinth packs (manual download for now)
+- [ ] Auto-fetch CurseForge / Modrinth when not installed (discover covers already-installed)
 
 ## Reference pack wishlist
 
@@ -48,7 +49,7 @@ Living checklist. Update this when priorities shift. Session todos mirror it.
 After download (Curse/Modrinth zip or packwiz checkout):
 
 ```bash
-make add DIR=~/path/to/unpacked-pack --id atm10 --role reference --label "All the Mods 10"
+make add DIR=~/Downloads/All\ the\ Mods\ 10 ID=atm10 ROLE=reference LABEL="All the Mods 10"
 make dump PACK=atm10 EULA=1   # if NeoForge + KubeJS capable; else corpus still reads mods/
 make corpus                   # mod frequency across builds + local references
 make web && make serve
